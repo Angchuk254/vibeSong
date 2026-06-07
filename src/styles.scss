@@ -1,0 +1,365 @@
+// ============================================
+// vibeOnly — Global Design System
+// ============================================
+
+@import 'bootstrap/scss/functions';
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/mixins';
+
+// ── Custom Bootstrap Overrides ──
+$primary: #6C5CE7;
+$secondary: #00CEC9;
+$dark: #0a0a1a;
+$light: #f8f9fa;
+
+// ── Import Bootstrap ──
+@import 'bootstrap/scss/bootstrap';
+@import 'bootstrap-icons/font/bootstrap-icons.css'; // Keep @import for CSS files as it's still valid for raw CSS
+
+// ============================================
+// CSS Custom Properties — Design Tokens
+// ============================================
+:root {
+  // Colors
+  --vo-bg-primary: #0a0a1a;
+  --vo-bg-secondary: #12122a;
+  --vo-bg-card: #1a1a3e;
+  --vo-bg-card-hover: #222255;
+  --vo-bg-glass: rgba(26, 26, 62, 0.7);
+  --vo-bg-input: rgba(255, 255, 255, 0.06);
+  --vo-bg-player: rgba(10, 10, 26, 0.95);
+
+  --vo-accent: #6C5CE7;
+  --vo-accent-light: #a29bfe;
+  --vo-accent-glow: rgba(108, 92, 231, 0.3);
+  --vo-secondary: #00CEC9;
+  --vo-secondary-light: #55EFC4;
+
+  --vo-text-primary: #ffffff;
+  --vo-text-secondary: rgba(255, 255, 255, 0.65);
+  --vo-text-muted: rgba(255, 255, 255, 0.4);
+  --vo-text-accent: #a29bfe;
+
+  --vo-border: rgba(255, 255, 255, 0.08);
+  --vo-border-light: rgba(255, 255, 255, 0.12);
+
+  --vo-gradient-accent: linear-gradient(135deg, #6C5CE7, #a29bfe);
+  --vo-gradient-secondary: linear-gradient(135deg, #00CEC9, #55EFC4);
+  --vo-gradient-hero: linear-gradient(180deg, rgba(108, 92, 231, 0.15) 0%, transparent 60%);
+  --vo-gradient-card: linear-gradient(145deg, rgba(108, 92, 231, 0.08), transparent);
+
+  --vo-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --vo-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --vo-shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+  --vo-shadow-glow: 0 0 20px rgba(108, 92, 231, 0.25);
+
+  --vo-radius-sm: 8px;
+  --vo-radius-md: 12px;
+  --vo-radius-lg: 16px;
+  --vo-radius-xl: 24px;
+  --vo-radius-full: 50%;
+
+  --vo-font-primary: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  --vo-font-display: 'Outfit', 'Inter', system-ui, sans-serif;
+
+  --vo-player-height: 80px;
+  --vo-bottom-nav-height: 64px;
+  --vo-safe-bottom: calc(var(--vo-player-height) + var(--vo-bottom-nav-height) + 8px);
+
+  --vo-transition-fast: 0.15s ease;
+  --vo-transition: 0.25s ease;
+  --vo-transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// ── Light Mode Overrides ──
+[data-theme="light"] {
+  --vo-bg-primary: #f5f3ff;
+  --vo-bg-secondary: #ede9fe;
+  --vo-bg-card: #ffffff;
+  --vo-bg-card-hover: #f0ecff;
+  --vo-bg-glass: rgba(255, 255, 255, 0.85);
+  --vo-bg-input: rgba(0, 0, 0, 0.04);
+  --vo-bg-player: rgba(255, 255, 255, 0.95);
+
+  --vo-text-primary: #1a1a2e;
+  --vo-text-secondary: rgba(26, 26, 46, 0.65);
+  --vo-text-muted: rgba(26, 26, 46, 0.4);
+  --vo-text-accent: #6C5CE7;
+
+  --vo-border: rgba(0, 0, 0, 0.08);
+  --vo-border-light: rgba(0, 0, 0, 0.12);
+
+  --vo-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --vo-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --vo-shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.12);
+  --vo-shadow-glow: 0 0 20px rgba(108, 92, 231, 0.15);
+}
+
+// ============================================
+// Global Base Styles
+// ============================================
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--vo-font-primary);
+  background-color: var(--vo-bg-primary);
+  color: var(--vo-text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+// ============================================
+// Scrollbar Handling (Hidden but functional)
+// ============================================
+* {
+  scrollbar-width: none; // Firefox
+  -ms-overflow-style: none; // IE/Edge
+}
+
+*::-webkit-scrollbar {
+  display: none; // Chrome/Safari/Opera
+}
+
+// ============================================
+// Typography
+// ============================================
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--vo-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--vo-text-primary);
+}
+
+a {
+  color: var(--vo-text-accent);
+  text-decoration: none;
+  transition: color var(--vo-transition-fast);
+
+  &:hover {
+    color: var(--vo-accent);
+  }
+}
+
+// ============================================
+// Utility Classes
+// ============================================
+.vo-glass {
+  background: var(--vo-bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--vo-border);
+}
+
+.vo-card {
+  background: var(--vo-bg-card);
+  border-radius: var(--vo-radius-lg);
+  border: 1px solid var(--vo-border);
+  transition: all var(--vo-transition);
+  overflow: hidden;
+
+  &:hover {
+    background: var(--vo-bg-card-hover);
+    border-color: var(--vo-border-light);
+    transform: translateY(-2px);
+    box-shadow: var(--vo-shadow-md);
+  }
+}
+
+.vo-gradient-text {
+  background: var(--vo-gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.vo-glow {
+  box-shadow: var(--vo-shadow-glow);
+}
+
+.vo-section-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vo-see-all {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--vo-accent-light);
+  cursor: pointer;
+  transition: color var(--vo-transition-fast);
+
+  &:hover {
+    color: var(--vo-accent);
+  }
+}
+
+// ============================================
+// Horizontal Scroll Container
+// ============================================
+.vo-hscroll {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  & > * {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+}
+
+// ============================================
+// Skeleton Loader
+// ============================================
+.vo-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--vo-bg-card) 25%,
+    var(--vo-bg-card-hover) 50%,
+    var(--vo-bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--vo-radius-md);
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+// ============================================
+// Main Content Area — bottom padding for player + nav
+// ============================================
+.vo-main-content {
+  padding-bottom: var(--vo-safe-bottom);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+// ============================================
+// Animations
+// ============================================
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.vo-fade-in {
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+// ============================================
+// Responsive Helpers
+// ============================================
+@media (max-width: 576px) {
+  .vo-section-title {
+    font-size: 1.15rem;
+  }
+}
+
+// Hide desktop-only on mobile
+@media (max-width: 768px) {
+  .vo-desktop-only {
+    display: none !important;
+  }
+}
+
+// Hide mobile-only on desktop
+@media (min-width: 769px) {
+  .vo-mobile-only {
+    display: none !important;
+  }
+}
+
+// ============================================
+// Button Styles
+// ============================================
+.vo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border: none;
+  border-radius: var(--vo-radius-xl);
+  font-family: var(--vo-font-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--vo-transition);
+  outline: none;
+
+  &-primary {
+    background: var(--vo-gradient-accent);
+    color: #fff;
+
+    &:hover {
+      box-shadow: var(--vo-shadow-glow);
+      transform: translateY(-1px);
+    }
+  }
+
+  &-ghost {
+    background: transparent;
+    color: var(--vo-text-primary);
+    border: 1px solid var(--vo-border);
+
+    &:hover {
+      background: var(--vo-bg-input);
+      border-color: var(--vo-border-light);
+    }
+  }
+
+  &-icon {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: var(--vo-radius-full);
+    font-size: 1.2rem;
+  }
+}
