@@ -2,17 +2,19 @@
 // vibeOnly — Track Card Component
 // ============================================
 
-import { Component, input, output, inject, OnInit } from '@angular/core';
+import { Component, input, output, inject } from '@angular/core';
 import { Track } from '../../models';
-import { PlayerService, StorageService } from '../../services';
+import { PlayerService } from '../../services';
 import { DurationPipe } from '../../pipes';
+import { sourceMeta } from '../source-badge';
 
 @Component({
   selector: 'app-track-card',
   standalone: true,
   imports: [DurationPipe],
   template: `
-    <div class="track-card" (click)="onPlay()" [class.is-playing]="isCurrentlyPlaying()">
+    <div class="track-card" tabindex="0" role="button" [attr.aria-label]="'Play ' + track().name"
+         (click)="onPlay()" (keydown.enter)="onPlay()" [class.is-playing]="isCurrentlyPlaying()">
       <div class="track-card__image">
         <img [src]="track().album_image || track().image || 'icons/icon-192x192.png'"
              [alt]="track().name"
@@ -23,17 +25,22 @@ import { DurationPipe } from '../../pipes';
           </button>
         </div>
         @if (track().provider) {
-          <div class="track-card__provider" [title]="track().provider">
-            <i class="bi" [class]="getProviderIcon(track().provider)"></i>
+          <div class="track-card__provider" [title]="source().label">
+            <i class="bi" [class]="source().icon"></i>
+            @if (track().isLive || track().provider === 'radio') { <span>LIVE</span> }
+            @else if (track().isPreview) { <span>PREVIEW</span> }
           </div>
         }
         @if (showFavorite()) {
           <button class="track-card__fav-btn"
                   (click)="onToggleFavorite($event)"
-                  [attr.aria-label]="isFav ? 'Remove from favorites' : 'Add to favorites'">
-            <i class="bi" [class.bi-heart-fill]="isFav" [class.bi-heart]="!isFav"></i>
+                  [attr.aria-label]="isFav() ? 'Remove from Liked Songs' : 'Save to Liked Songs'">
+            <i class="bi" [class.bi-heart-fill]="isFav()" [class.bi-heart]="!isFav()"></i>
           </button>
         }
+        <button class="track-card__queue-btn" (click)="onQueue($event)" aria-label="Add to queue" title="Add to queue">
+          <i class="bi bi-plus-lg"></i>
+        </button>
       </div>
       <div class="track-card__info">
         <h4 class="track-card__title" [title]="track().name">{{ track().name }}</h4>
@@ -159,7 +166,46 @@ import { DurationPipe } from '../../pipes';
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 4px;
       z-index: 1;
+
+      span {
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+      }
+    }
+
+    .track-card__queue-btn {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      border: none;
+      color: #fff;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.9rem;
+      opacity: 0;
+      z-index: 2;
+      transition: opacity var(--vo-transition);
+
+      .track-card__image:hover & {
+        opacity: 1;
+      }
+    }
+
+    @media (hover: none) {
+      .track-card__fav-btn,
+      .track-card__queue-btn {
+        opacity: 0.9;
+      }
     }
 
     .track-card__info {
@@ -202,7 +248,7 @@ import { DurationPipe } from '../../pipes';
     }
   `],
 })
-export class TrackCardComponent implements OnInit {
+export class TrackCardComponent {
   readonly track = input.required<Track>();
   readonly showFavorite = input(true);
   readonly showDuration = input(false);
@@ -210,12 +256,13 @@ export class TrackCardComponent implements OnInit {
   readonly played = output<Track>();
 
   private player = inject(PlayerService);
-  private storage = inject(StorageService);
 
-  isFav = false;
+  isFav(): boolean {
+    return this.player.isFavorite(this.track().id);
+  }
 
-  ngOnInit(): void {
-    this.isFav = this.storage.isFavorite(this.track().id);
+  source() {
+    return sourceMeta(this.track());
   }
 
   isCurrentlyPlaying(): boolean {
@@ -224,6 +271,10 @@ export class TrackCardComponent implements OnInit {
   }
 
   onPlay(): void {
+    if (this.player.currentTrack()?.id === this.track().id) {
+      this.player.togglePlay();
+      return;
+    }
     const list = this.trackList().length > 0 ? this.trackList() : undefined;
     this.player.playTrack(this.track(), list);
     this.played.emit(this.track());
@@ -231,17 +282,11 @@ export class TrackCardComponent implements OnInit {
 
   onToggleFavorite(event: Event): void {
     event.stopPropagation();
-    this.isFav = this.storage.toggleFavorite(this.track());
+    this.player.toggleFavorite(this.track());
   }
 
-  getProviderIcon(provider?: string): string {
-    switch (provider) {
-      case 'jamendo': return 'bi-music-note-beamed';
-      case 'archive': return 'bi-bank';
-      case 'local': return 'bi-hdd-fill';
-      case 'radio': return 'bi-boombox';
-      case 'supabase': return 'bi-cloud-check-fill';
-      default: return 'bi-music-note';
-    }
+  onQueue(event: Event): void {
+    event.stopPropagation();
+    this.player.addToQueue([this.track()]);
   }
 }

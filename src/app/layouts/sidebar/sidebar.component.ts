@@ -4,7 +4,7 @@
 
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { ThemeService } from '../../services';
+import { ThemeService, LibraryService } from '../../services';
 
 @Component({
   selector: 'app-sidebar',
@@ -32,11 +32,26 @@ import { ThemeService } from '../../services';
           <i class="bi bi-collection-fill"></i>
           <span>Library</span>
         </a>
-        <a routerLink="/favorites" routerLinkActive="active" class="sidebar__link">
+        <a routerLink="/library" [queryParams]="{ tab: 'liked' }" class="sidebar__link">
           <i class="bi bi-heart-fill"></i>
-          <span>Favorites</span>
+          <span>Liked Songs</span>
         </a>
       </nav>
+
+      <div class="sidebar__playlists">
+        <div class="sidebar__section-head">
+          <span>Playlists</span>
+          <a routerLink="/library" [queryParams]="{ tab: 'playlists' }" aria-label="Manage playlists"><i class="bi bi-plus-lg"></i></a>
+        </div>
+        @for (pl of library.playlists(); track pl.id) {
+          <a class="sidebar__playlist" [routerLink]="['/playlist', pl.id]" routerLinkActive="active">
+            <i class="bi bi-music-note-list"></i>
+            <span>{{ pl.name }}</span>
+          </a>
+        } @empty {
+          <p class="sidebar__muted">No playlists yet</p>
+        }
+      </div>
 
       <div class="sidebar__footer">
         <button class="sidebar__theme-btn" (click)="theme.toggleTheme()">
@@ -97,7 +112,66 @@ import { ThemeService } from '../../services';
       display: flex;
       flex-direction: column;
       gap: 4px;
+    }
+
+    .sidebar__playlists {
       flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--vo-border);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sidebar__section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--vo-text-muted);
+
+      a {
+        color: var(--vo-text-secondary);
+        font-size: 0.9rem;
+
+        &:hover { color: var(--vo-text-primary); }
+      }
+    }
+
+    .sidebar__playlist {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--vo-radius-sm);
+      color: var(--vo-text-secondary);
+      text-decoration: none;
+      font-size: 0.88rem;
+
+      span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      &:hover,
+      &.active {
+        color: var(--vo-text-primary);
+        background: var(--vo-bg-input);
+      }
+    }
+
+    .sidebar__muted {
+      padding: 0 12px;
+      font-size: 0.82rem;
+      color: var(--vo-text-muted);
     }
 
     .sidebar__link {
@@ -171,4 +245,5 @@ import { ThemeService } from '../../services';
 })
 export class SidebarComponent {
   readonly theme = inject(ThemeService);
+  readonly library = inject(LibraryService);
 }

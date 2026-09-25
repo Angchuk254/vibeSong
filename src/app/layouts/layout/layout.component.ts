@@ -7,11 +7,12 @@ import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { BottomNavComponent } from '../bottom-nav/bottom-nav.component';
 import { PlayerComponent } from '../../player/player.component';
+import { PlaylistPickerComponent } from '../../shared/playlist-picker/playlist-picker.component';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, BottomNavComponent, PlayerComponent],
+  imports: [RouterOutlet, SidebarComponent, BottomNavComponent, PlayerComponent, PlaylistPickerComponent],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
@@ -24,6 +25,7 @@ import { PlayerComponent } from '../../player/player.component';
 
       <app-player></app-player>
       <app-bottom-nav></app-bottom-nav>
+      <app-playlist-picker></app-playlist-picker>
     </div>
   `,
   styles: [`

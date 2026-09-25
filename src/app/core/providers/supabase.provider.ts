@@ -31,6 +31,10 @@ export class SupabaseProvider implements MusicProvider {
   searchTracks(query: string, limit = 10): Observable<Track[]> {
     if (!query.trim()) return of([]);
     
+    // Characters that would break PostgREST's or() filter syntax
+    query = query.replace(/[,()%*\\]/g, ' ').trim();
+    if (!query) return of([]);
+
     // Simple text search on the 'tracks' table
     const promise = this.supabase
       .from('tracks')
@@ -65,7 +69,8 @@ export class SupabaseProvider implements MusicProvider {
     
     // Only filter if it's a specific category (ignore 'featured' or 'trending' as they are generic)
     if (category !== 'featured' && category !== 'trending' && category !== 'all') {
-      query = query.eq('category', category);
+      // Case-insensitive so 'ladakhi' matches uploads saved as 'Ladakhi'
+      query = query.ilike('category', category);
     }
 
     const promise = query

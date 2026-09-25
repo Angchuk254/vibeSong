@@ -363,3 +363,24 @@ a {
     font-size: 1.2rem;
   }
 }
+
+// ── Source badges (PREVIEW / LIVE) ──
+.vo-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--vo-text-secondary);
+  border: 1px solid var(--vo-border-light);
+  line-height: 1.5;
+
+  &--live {
+    color: #fff;
+    background: #e5484d;
+    border-color: #e5484d;
+  }
+}

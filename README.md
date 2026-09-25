@@ -1,5 +1,30 @@
 # VibeSong
 
+A personal Spotify-style player.
+
+## Music sources
+
+| Source | What you get | Notes |
+| --- | --- | --- |
+| Your Supabase uploads | Full songs | Uploaded through `/admin/upload` |
+| [Audius](https://audius.co) | Full-length songs | Free, no API key. Powers Trending, genre rows, Made For You, and Autoplay |
+| iTunes Search | 30-second previews | Mainstream Bollywood, Punjabi and Nepali catalog, labelled **PREVIEW** |
+| Internet Archive | Full songs | Public-domain recordings |
+| Radio Browser | Live radio | Only HTTPS, non-HLS stations that passed their last check, labelled **LIVE** |
+
+## Setup
+
+Copy `src/app/core/environment.example.ts` to `src/app/core/environment.ts` and add your Supabase URL and anon key. The real file is git-ignored.
+
+## Player features
+
+- Broken or slow songs are skipped automatically
+- Autoplay: when the queue ends, similar songs keep playing
+- Up Next queue: play next, add to queue, reorder, remove
+- Playlists, Liked Songs, listening stats (top artists, On Repeat)
+- Sleep timer, lock-screen and headphone controls, and resume after reload
+- Keyboard shortcuts: Space play/pause, ←/→ seek, Shift+←/→ previous/next, ↑/↓ volume, S shuffle, R repeat, L like, M mute
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
 
 ## Development server

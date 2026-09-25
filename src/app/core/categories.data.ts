@@ -12,6 +12,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #ff0844, #ffb199)',
     tag: 'radio',
     description: 'Live global and regional radio streams from across the world',
+    sources: { radio: 'india' },
   },
   {
     id: 'bollywood',
@@ -20,6 +21,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #f6d365, #fda085)',
     tag: 'bollywood',
     description: 'Cinematic hits and Bollywood-inspired soundtracks',
+    sources: { itunes: 'bollywood hits', audius: ['bollywood'] },
   },
   {
     id: 'hindi',
@@ -28,6 +30,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #ff9a9e, #fecfef)',
     tag: 'hindi',
     description: 'Popular Hindi hits, Indie-pop and soulful melodies',
+    sources: { itunes: 'hindi songs', audius: ['hindi'] },
   },
   {
     id: 'punjabi',
@@ -36,6 +39,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)',
     tag: 'punjabi',
     description: 'Energetic Punjabi beats and soulful regional melodies',
+    sources: { itunes: 'punjabi', audius: ['punjabi'] },
   },
   {
     id: 'ladakhi',
@@ -44,6 +48,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #667eea, #764ba2)',
     tag: 'ladakhi',
     description: 'Traditional Ladakhi folk and modern fusion from the high passes',
+    sources: { audius: ['ladakh', 'tibetan'], itunes: 'ladakhi', archive: 'ladakh' },
   },
   {
     id: 'uttarakhand',
@@ -52,6 +57,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #43e97b, #38f9d7)',
     tag: 'uttarakhand',
     description: 'Soulful regional vibes from the Land of the Gods',
+    sources: { itunes: 'garhwali', audius: ['pahadi'] },
   },
   {
     id: 'himachali',
@@ -60,6 +66,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
     tag: 'himachali',
     description: 'Fresh melodies and folk songs from the Apple State',
+    sources: { itunes: 'himachali', audius: ['himachal'] },
   },
   {
     id: 'pahadi',
@@ -68,6 +75,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #f093fb, #f5576c)',
     tag: 'pahadi',
     description: 'Melodies from the Himalayan foothills and Dogri culture',
+    sources: { itunes: 'pahadi', audius: ['pahadi'] },
   },
   {
     id: 'nepal',
@@ -76,6 +84,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #ffecd2, #fcb69f)',
     tag: 'nepal',
     description: 'Folk and modern pop from the heart of the Himalayas',
+    sources: { itunes: 'nepali songs', audius: ['nepali', 'nepal'] },
   },
   {
     id: 'india',
@@ -84,6 +93,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #89f7fe, #66a6ff)',
     tag: 'india',
     description: 'Top trending tracks and classical gems from across India',
+    sources: { itunes: 'arijit singh', audius: ['india', 'desi'] },
   },
   {
     id: 'tibet',
@@ -92,6 +102,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #f093fb, #f5576c)',
     tag: 'tibet',
     description: 'Soulful Tibetan chants and modern Himalayan melodies',
+    sources: { audius: ['tibetan', 'singing bowl'], itunes: 'tibetan', archive: 'tibetan music' },
   },
   {
     id: 'pakistan',
@@ -100,6 +111,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)',
     tag: 'pakistan',
     description: 'Classical Sufi music and popular Pakistani hits',
+    sources: { itunes: 'coke studio', audius: ['sufi', 'qawwali'] },
   },
   {
     id: 'folk',
@@ -108,6 +120,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #d4fc79, #96e6a1)',
     tag: 'folk',
     description: 'Traditional folk music and ethnic discoveries',
+    sources: { uploads: 'Folk', audiusGenre: 'Folk', audius: ['folk'] },
   },
   {
     id: 'meditation',
@@ -116,6 +129,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #a18cd1, #fbc2eb)',
     tag: 'meditation',
     description: 'Peaceful sounds for meditation and mindfulness',
+    sources: { uploads: 'Meditation', audiusGenre: 'Ambient', audius: ['meditation'] },
   },
   {
     id: 'chill',
@@ -124,6 +138,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #cfd9df, #e2ebf0)',
     tag: 'chillout',
     description: 'Lo-fi, ambient, and relaxing tracks for unwinding',
+    sources: { uploads: 'Chill', audiusGenre: 'Downtempo', audius: ['chill'] },
   },
   {
     id: 'indie',
@@ -132,6 +147,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
     tag: 'indie',
     description: 'Independent artists and underground music discoveries',
+    sources: { uploads: 'Indie', audiusGenre: 'Alternative', audius: ['indie'] },
   },
   {
     id: 'lofi',
@@ -140,6 +156,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #2af598, #009efd)',
     tag: 'lofi',
     description: 'Perfect beats for study, work or just relaxing',
+    sources: { audiusGenre: 'Lo-Fi', audius: ['lofi'] },
   },
   {
     id: 'classical',
@@ -148,5 +165,42 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     gradient: 'linear-gradient(135deg, #c471f5, #fa71cd)',
     tag: 'classical',
     description: 'Timeless masterpieces and orchestral wonders',
+    sources: { audiusGenre: 'Classical', itunes: 'indian classical' },
+  },
+  {
+    id: 'hiphop',
+    name: 'Hip-Hop',
+    icon: 'bi-mic-fill',
+    gradient: 'linear-gradient(135deg, #f7971e, #ffd200)',
+    tag: 'hip-hop',
+    description: 'Fresh rap and hip-hop cuts trending right now',
+    sources: { audiusGenre: 'Hip-Hop/Rap', itunes: 'desi hip hop' },
+  },
+  {
+    id: 'electronic',
+    name: 'Electronic',
+    icon: 'bi-lightning-charge-fill',
+    gradient: 'linear-gradient(135deg, #00c6ff, #0072ff)',
+    tag: 'electronic',
+    description: 'House, bass and everything with a synth in it',
+    sources: { audiusGenre: 'Electronic' },
+  },
+  {
+    id: 'pop',
+    name: 'Pop',
+    icon: 'bi-balloon-heart-fill',
+    gradient: 'linear-gradient(135deg, #fc466b, #3f5efb)',
+    tag: 'pop',
+    description: 'Catchy hooks and feel-good pop',
+    sources: { audiusGenre: 'Pop', itunes: 'top pop hits' },
+  },
+  {
+    id: 'acoustic',
+    name: 'Acoustic',
+    icon: 'bi-music-note',
+    gradient: 'linear-gradient(135deg, #c79081, #dfa579)',
+    tag: 'acoustic',
+    description: 'Unplugged guitars and intimate vocals',
+    sources: { audiusGenre: 'Acoustic', audius: ['unplugged'] },
   },
 ];

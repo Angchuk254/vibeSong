@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { map, catchError, switchMap } from 'rxjs/operators';
+import { map, catchError, switchMap, timeout } from 'rxjs/operators';
 import { Track } from '../../models';
 import { MusicProvider } from './music-provider.interface';
 
@@ -11,8 +11,12 @@ export class RadioProvider implements MusicProvider {
   name = 'Radio Browser';
 
   private readonly http = inject(HttpClient);
-  // Using a stable node. In a full app, you would fetch from all.api.radio-browser.info/json/servers
-  private readonly baseUrl = 'https://de1.api.radio-browser.info/json/stations';
+  // Mirrors are tried in order if one is down
+  private readonly mirrors = [
+    'https://de1.api.radio-browser.info',
+    'https://nl1.api.radio-browser.info',
+    'https://at1.api.radio-browser.info',
+  ];
 
   getTrendingTracks(limit = 10): Observable<Track[]> {
     // Use clicktimestamp for more dynamic "trending" results
@@ -126,20 +130,29 @@ export class RadioProvider implements MusicProvider {
   }
 
   private fetchStations(params: any): Observable<Track[]> {
+    const requested = parseInt(params.limit, 10) || 20;
     const queryParams = new URLSearchParams({
       ...params,
+      // Over-fetch: many stations get dropped by the playability filter below
+      limit: String(requested * 3),
       format: 'json',
       hidebroken: 'true',
       order: params.order || 'clickcount',
       reverse: 'true'
     });
-    
-    return this.http.get<any[]>(`${this.baseUrl}/search?${queryParams.toString()}`).pipe(
+
+    const tryMirror = (i: number): Observable<any[]> =>
+      this.http.get<any[]>(`${this.mirrors[i]}/json/stations/search?${queryParams.toString()}`).pipe(
+        timeout(8000),
+        catchError(() => (i + 1 < this.mirrors.length ? tryMirror(i + 1) : of([] as any[])))
+      );
+
+    return tryMirror(0).pipe(
       map(res => {
         if (!Array.isArray(res)) return [];
         return res
-          // Filter out HLS streams because raw HTML5 audio doesn't support m3u8 in most browsers without hls.js
-          .filter(station => station.hls === 0 && station.url_resolved)
+          .filter(station => this.isPlayable(station))
+          .slice(0, requested)
           .map(station => this.mapToTrack(station));
       }),
       catchError(err => {
@@ -149,11 +162,23 @@ export class RadioProvider implements MusicProvider {
     );
   }
 
+  /**
+   * HLS needs hls.js, and plain-HTTP streams are blocked as mixed content on an
+   * HTTPS site — those two cases were the bulk of the "not working" stations.
+   */
+  private isPlayable(station: any): boolean {
+    const url: string = station.url_resolved || '';
+    return (
+      station.hls === 0 &&
+      station.lastcheckok === 1 &&
+      url.startsWith('https://') &&
+      !/\.m3u8?($|\?)|\.pls($|\?)/i.test(url)
+    );
+  }
+
   private mapToTrack(station: any): Track {
     const fallbackImage = 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&q=80';
     
-    // Some radio stations use HTTP. If the app is hosted on HTTPS, mixed content will block it.
-    // For this prototype, we'll return the url directly.
     const streamUrl = station.url_resolved;
 
     return {
@@ -170,7 +195,9 @@ export class RadioProvider implements MusicProvider {
       image: station.favicon || fallbackImage,
       releasedate: '',
       position: 1,
-      provider: this.id
+      tags: station.tags || '',
+      provider: this.id,
+      isLive: true
     };
   }
 }

@@ -9,7 +9,7 @@ import { Location } from '@angular/common';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { TrackCardComponent, SkeletonComponent } from '../../shared';
-import { MusicApiService } from '../../services';
+import { MusicApiService, PlayerService } from '../../services';
 import { Track, MusicCategory } from '../../models';
 import { MUSIC_CATEGORIES } from '../../core/categories.data';
 
@@ -37,7 +37,15 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
         </header>
 
         <section class="cat-content">
-          <h3 class="vo-section-title">Top Tracks</h3>
+          <h3 class="vo-section-title">
+            <span>Top Tracks @if (!isLoading()) { <small class="cat-count">{{ tracks().length }}</small> }</span>
+            @if (!isLoading() && tracks().length > 0) {
+              <span class="cat-actions">
+                <button class="vo-btn cat-shuffle" (click)="player.playAll(tracks(), true)"><i class="bi bi-shuffle"></i> Shuffle</button>
+                <button class="vo-btn vo-btn-primary" (click)="player.playAll(tracks())"><i class="bi bi-play-fill"></i> Play</button>
+              </span>
+            }
+          </h3>
           <div class="track-grid">
             @if (isLoading()) {
               @for (i of [1,2,3,4,5,6,7,8,9,10]; track i) {
@@ -154,6 +162,23 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
       line-height: 1.4;
     }
 
+    .cat-count {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--vo-text-muted);
+      margin-left: 6px;
+    }
+
+    .cat-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .cat-shuffle {
+      background: var(--vo-bg-input);
+      color: var(--vo-text-primary);
+    }
+
     .track-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -188,6 +213,7 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
 export class CategoryComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private musicApi = inject(MusicApiService);
+  readonly player = inject(PlayerService);
   private location = inject(Location);
   private destroy$ = new Subject<void>();
 
@@ -202,7 +228,7 @@ export class CategoryComponent implements OnInit, OnDestroy {
         const cat = MUSIC_CATEGORIES.find(c => c.id === id);
         if (cat) {
           this.category.set(cat);
-          this.loadCategoryTracks(cat.tag);
+          this.loadCategoryTracks(cat);
         }
       }
     });
@@ -213,9 +239,10 @@ export class CategoryComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private loadCategoryTracks(tag: string): void {
+  private loadCategoryTracks(cat: MusicCategory): void {
     this.isLoading.set(true);
-    this.musicApi.getTracksByTag(tag, 30)
+    this.tracks.set([]);
+    this.musicApi.getCategoryTracks(cat, 30)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => this.isLoading.set(false))

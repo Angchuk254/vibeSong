@@ -21,6 +21,13 @@ export interface Track {
   tags?: string;
   isFavorite?: boolean;
   provider?: string;
+  genre?: string;
+  mood?: string;
+  playCount?: number;
+  /** Short clip only (e.g. 30s iTunes preview), not the full song */
+  isPreview?: boolean;
+  /** Live stream with no fixed duration (radio) */
+  isLive?: boolean;
 }
 
 /** Represents an artist */
@@ -63,6 +70,23 @@ export interface MusicCategory {
   gradient: string;
   tag: string; // Jamendo tag for search
   description: string;
+  sources?: CategorySources;
+}
+
+/** Where a category pulls its music from */
+export interface CategorySources {
+  /** Category value your own Supabase uploads use (defaults to the category name) */
+  uploads?: string;
+  /** Audius genre to pull trending full-length tracks from */
+  audiusGenre?: string;
+  /** Audius search queries (full-length tracks) */
+  audius?: string[];
+  /** iTunes search term (30s previews of mainstream songs) */
+  itunes?: string;
+  /** Radio Browser tag/region (live streams) */
+  radio?: string;
+  /** Internet Archive search query (full-length, public domain) */
+  archive?: string;
 }
 
 /** Player state */

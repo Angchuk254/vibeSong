@@ -2,16 +2,16 @@
 // vibeOnly — Search Component
 // ============================================
 
-import { Component, inject, signal, OnDestroy } from '@angular/core';
+import { Component, inject, signal, computed, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TrackListItemComponent, SkeletonComponent } from '../../shared';
-import { MusicApiService } from '../../services';
+import { MusicApiService, PlayerService } from '../../services';
 import { Track } from '../../models';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, takeUntil, tap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, takeUntil, tap, catchError, map } from 'rxjs/operators';
+import { of, forkJoin } from 'rxjs';
 import { MUSIC_CATEGORIES } from '../../core/categories.data';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-search',
@@ -25,7 +25,8 @@ import { Router } from '@angular/router';
         <input type="text"
                #searchInput
                class="search-input"
-               placeholder="Search tracks, artists, vibes..."
+               placeholder="Search songs, artists, genres, radio..."
+               autocomplete="off"
                [value]="searchQuery()"
                (input)="onSearchInput($event)"
                />
@@ -67,24 +68,49 @@ import { Router } from '@angular/router';
               }
             </div>
           } @else if (searchResults().length > 0) {
-            
-            @if (getTracksOnly().length > 0) {
+            <div class="filter-chips">
+              @for (f of filters; track f.id) {
+                @if (f.id === 'all' || countFor(f.id) > 0) {
+                  <button class="filter-chip" [class.active]="filter() === f.id" (click)="filter.set(f.id)">
+                    {{ f.label }} @if (f.id !== 'all') { <small>{{ countFor(f.id) }}</small> }
+                  </button>
+                }
+              }
+            </div>
+
+            @if ((filter() === 'all' || filter() === 'full') && fullSongs().length > 0) {
               <div class="results-group">
-                <h3 class="vo-section-title">Songs</h3>
+                <h3 class="vo-section-title">
+                  Songs
+                  <button class="vo-btn vo-btn-primary play-all" (click)="player.playAll(fullSongs())"><i class="bi bi-play-fill"></i> Play all</button>
+                </h3>
                 <div class="results-list">
-                  @for (track of getTracksOnly(); track track.id; let i = $index) {
-                    <app-track-list-item [track]="track" [index]="i + 1" [trackList]="getTracksOnly()"></app-track-list-item>
+                  @for (track of limit(fullSongs()); track track.id; let i = $index) {
+                    <app-track-list-item [track]="track" [index]="i + 1" [trackList]="fullSongs()"></app-track-list-item>
                   }
                 </div>
               </div>
             }
 
-            @if (getRadioOnly().length > 0) {
+            @if ((filter() === 'all' || filter() === 'preview') && previews().length > 0) {
+              <div class="results-group mt-4">
+                <h3 class="vo-section-title">
+                  <span>Previews <small class="group-hint">30-second clips of mainstream releases</small></span>
+                </h3>
+                <div class="results-list">
+                  @for (track of limit(previews()); track track.id; let i = $index) {
+                    <app-track-list-item [track]="track" [index]="i + 1" [trackList]="previews()"></app-track-list-item>
+                  }
+                </div>
+              </div>
+            }
+
+            @if ((filter() === 'all' || filter() === 'radio') && stations().length > 0) {
               <div class="results-group mt-4">
                 <h3 class="vo-section-title">Live Radio Stations</h3>
                 <div class="results-list">
-                  @for (track of getRadioOnly(); track track.id; let i = $index) {
-                    <app-track-list-item [track]="track" [index]="i + 1" [trackList]="getRadioOnly()"></app-track-list-item>
+                  @for (track of limit(stations()); track track.id; let i = $index) {
+                    <app-track-list-item [track]="track" [index]="i + 1" [trackList]="stations()"></app-track-list-item>
                   }
                 </div>
               </div>
@@ -208,6 +234,49 @@ import { Router } from '@angular/router';
       }
     }
 
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .filter-chip {
+      border: 1px solid var(--vo-border-light);
+      background: var(--vo-bg-input);
+      color: var(--vo-text-primary);
+      border-radius: var(--vo-radius-xl);
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+
+      small {
+        color: var(--vo-text-muted);
+        font-weight: 500;
+        margin-left: 4px;
+      }
+
+      &.active {
+        background: var(--vo-text-primary);
+        color: var(--vo-bg-primary);
+
+        small { color: inherit; opacity: 0.7; }
+      }
+    }
+
+    .play-all {
+      padding: 6px 16px;
+      font-size: 0.8rem;
+    }
+
+    .group-hint {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 400;
+      color: var(--vo-text-muted);
+    }
+
     .results-list {
       display: flex;
       flex-direction: column;
@@ -244,7 +313,9 @@ import { Router } from '@angular/router';
 })
 export class SearchComponent implements OnDestroy {
   private musicApi = inject(MusicApiService);
+  readonly player = inject(PlayerService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
 
@@ -268,23 +339,51 @@ export class SearchComponent implements OnDestroy {
         }
       }),
       switchMap(query => {
-        if (query.trim().length === 0) return of([]);
-        return this.musicApi.searchTracks(query).pipe(
-          catchError(() => of([]))
-        );
+        if (query.trim().length === 0) return of([] as Track[]);
+        return forkJoin([
+          this.musicApi.searchTracks(query, 25).pipe(catchError(() => of([] as Track[]))),
+          this.musicApi.searchStations(query, 10).pipe(catchError(() => of([] as Track[]))),
+        ]).pipe(map(([songs, stations]) => [...songs, ...stations]));
       })
     ).subscribe(results => {
+      this.filter.set('all');
       this.searchResults.set(results);
       this.isSearching.set(false);
     });
+
+    const q = this.route.snapshot.queryParamMap.get('q');
+    if (q) {
+      this.searchQuery.set(q);
+      this.searchSubject.next(q);
+    }
   }
 
-  getTracksOnly(): Track[] {
-    return this.searchResults().filter(t => t.provider !== 'radio');
+  readonly filters: { id: 'all' | 'full' | 'preview' | 'radio'; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'full', label: 'Full songs' },
+    { id: 'preview', label: 'Previews' },
+    { id: 'radio', label: 'Radio' },
+  ];
+  readonly filter = signal<'all' | 'full' | 'preview' | 'radio'>('all');
+
+  readonly fullSongs = computed(() => this.searchResults().filter(t => !t.isPreview && !this.isRadio(t)));
+  readonly previews = computed(() => this.searchResults().filter(t => t.isPreview));
+  readonly stations = computed(() => this.searchResults().filter(t => this.isRadio(t)));
+
+  countFor(id: 'all' | 'full' | 'preview' | 'radio'): number {
+    if (id === 'full') return this.fullSongs().length;
+    if (id === 'preview') return this.previews().length;
+    if (id === 'radio') return this.stations().length;
+    return this.searchResults().length;
   }
 
-  getRadioOnly(): Track[] {
-    return this.searchResults().filter(t => t.provider === 'radio');
+  /** In the "All" view keep each group short; a filter shows everything */
+  limit(tracks: Track[]): Track[] {
+    return this.filter() === 'all' ? tracks.slice(0, 8) : tracks;
+  }
+
+  private isRadio(t: Track): boolean {
+    return !!t.isLive || t.provider === 'radio';
   }
 
   ngOnDestroy(): void {

@@ -11,7 +11,30 @@ const KEYS = {
   PLAYLISTS: 'vo_playlists',
   THEME: 'vo_theme',
   VOLUME: 'vo_volume',
+  PLAYS: 'vo_plays',
+  SESSION: 'vo_session',
+  PLAYER_PREFS: 'vo_player_prefs',
 } as const;
+
+export interface PlayerSession {
+  queue: Track[];
+  index: number;
+  time: number;
+}
+
+export interface PlayerPrefs {
+  shuffle: boolean;
+  repeat: 'none' | 'one' | 'all';
+  autoplay: boolean;
+}
+
+interface PlayStat {
+  track: Track;
+  count: number;
+  last: number;
+}
+
+const MAX_PLAY_STATS = 300;
 
 const MAX_RECENT = 50;
 
@@ -26,7 +49,9 @@ export class StorageService {
     try {
       const isInvalidTrack = (t: Track) => {
         // Radio stations always have 0 duration, so we should allow them.
-        if (t.category === 'Radio' || t.provider === 'radio') return false;
+        if (t.category === 'Radio' || t.provider === 'radio' || t.isLive) return false;
+        // Uploads may not have a duration stored; they're still playable
+        if (t.provider === 'supabase') return false;
         return t.duration === 0 || t.audio.includes('format=VBR') || t.audio.includes('sample-1');
       };
       
@@ -84,6 +109,71 @@ export class StorageService {
 
   clearRecent(): void {
     this.removeItem(KEYS.RECENT);
+  }
+
+  // ── Play stats (powers "On Repeat" and "Your top artists") ──
+
+  recordPlay(track: Track): void {
+    const stats = this.getItem<Record<string, PlayStat>>(KEYS.PLAYS) || {};
+    const prev = stats[track.id];
+    stats[track.id] = { track, count: (prev?.count || 0) + 1, last: Date.now() };
+
+    const entries = Object.entries(stats);
+    if (entries.length > MAX_PLAY_STATS) {
+      entries.sort((a, b) => b[1].count - a[1].count || b[1].last - a[1].last);
+      this.setItem(KEYS.PLAYS, Object.fromEntries(entries.slice(0, MAX_PLAY_STATS)));
+    } else {
+      this.setItem(KEYS.PLAYS, stats);
+    }
+  }
+
+  /** Songs you play most, most-played first */
+  getMostPlayed(limit = 20): Track[] {
+    const stats = Object.values(this.getItem<Record<string, PlayStat>>(KEYS.PLAYS) || {});
+    return stats
+      .filter((s) => s.count >= 2)
+      .sort((a, b) => b.count - a.count || b.last - a.last)
+      .slice(0, limit)
+      .map((s) => s.track);
+  }
+
+  getTopArtists(limit = 6): { name: string; image: string; plays: number }[] {
+    const stats = Object.values(this.getItem<Record<string, PlayStat>>(KEYS.PLAYS) || {});
+    const artists = new Map<string, { name: string; image: string; plays: number }>();
+    stats
+      .filter((s) => !s.track.isLive && s.track.provider !== 'radio')
+      .forEach((s) => {
+        const a = artists.get(s.track.artist_name) || { name: s.track.artist_name, image: s.track.image || s.track.album_image, plays: 0 };
+        a.plays += s.count;
+        artists.set(a.name, a);
+      });
+    return [...artists.values()].sort((a, b) => b.plays - a.plays).slice(0, limit);
+  }
+
+  getTotalPlays(): number {
+    return Object.values(this.getItem<Record<string, PlayStat>>(KEYS.PLAYS) || {}).reduce((n, s) => n + s.count, 0);
+  }
+
+  clearPlayStats(): void {
+    this.removeItem(KEYS.PLAYS);
+  }
+
+  // ── Player session ──
+
+  savePlayerSession(session: PlayerSession): void {
+    this.setItem(KEYS.SESSION, session);
+  }
+
+  getPlayerSession(): PlayerSession | null {
+    return this.getItem<PlayerSession>(KEYS.SESSION);
+  }
+
+  savePlayerPrefs(prefs: PlayerPrefs): void {
+    this.setItem(KEYS.PLAYER_PREFS, prefs);
+  }
+
+  getPlayerPrefs(): PlayerPrefs | null {
+    return this.getItem<PlayerPrefs>(KEYS.PLAYER_PREFS);
   }
 
   // ── Playlists ──
@@ -175,6 +265,10 @@ export class StorageService {
   }
 
   private removeItem(key: string): void {
-    localStorage.removeItem(key);
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* storage unavailable */
+    }
   }
 }
