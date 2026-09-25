@@ -29,10 +29,21 @@ No setup is needed: `npm install && npm start`.
 
 Everything personal is stored in your browser's localStorage. There are no accounts and no tracking.
 
-## Publish it (GitHub Pages)
+## Publish it
 
-`.github/workflows/deploy-pages.yml` builds the app and deploys it on every push to `clean-Web-React`.
-One-time setup: **Settings → Pages → Source: GitHub Actions**. The site is then live at `https://<user>.github.io/yakbeats/`.
+### Render (main site): https://yakbeats.onrender.com
+
+`render.yaml` is a Render Blueprint for a free static site:
+
+1. Sign in at [render.com](https://render.com) with GitHub.
+2. **New + → Blueprint** → choose **Angchuk254/yakbeats** → **Apply**.
+3. Render builds with Node 22 (`npm ci && ng build`), publishes `dist/vibeSong/browser`, and redeploys on every push to the branch named in `render.yaml`.
+
+The blueprint also sets the SPA rewrite (so deep links like `/artist/...` work) and cache headers (hashed files are cached forever; `index.html`, `ngsw.json` and the service worker are never cached, so updates arrive).
+
+### GitHub Pages (backup): https://angchuk254.github.io/yakbeats/
+
+Built with `ng build --base-href /yakbeats/` and pushed to the `gh-pages` branch.
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
 
