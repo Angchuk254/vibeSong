@@ -10,6 +10,7 @@ import { MusicApiService } from './music-api.service';
 import { DeviceMusicService, DEVICE_PREFIX } from './device-music.service';
 import { YouTubeService, YT_PREFIX } from './youtube.service';
 import { YouTubeMedia } from './youtube-media';
+import { AudioFxService } from './audio-fx.service';
 
 /** Whatever is currently producing sound: an <audio> element or the YouTube player */
 type MediaLike = HTMLAudioElement | YouTubeMedia;
@@ -25,7 +26,22 @@ export class PlayerService {
   private musicApi = inject(MusicApiService);
   private device = inject(DeviceMusicService);
   private youtube = inject(YouTubeService);
-  private html = new Audio();
+  private fx = inject(AudioFxService);
+  /** Two <audio> elements, so one song can fade into the next */
+  private pair = [new Audio(), new Audio()] as const;
+  /** Never goes through the equalizer: for audio that doesn't allow it (e.g. many radio stations) */
+  private plain = new Audio();
+  /** The <audio> element in use */
+  private html: HTMLAudioElement = this.pair[0];
+  /** The previous song, fading out during a crossfade */
+  private fading: HTMLAudioElement | null = null;
+  private crossfadeTarget: HTMLAudioElement | null = null;
+  private fadeInMs = 0;
+  /** Bumped on every load, so late results from an older attempt are ignored */
+  private attempt = 0;
+  /** Sources that refused to go through the equalizer */
+  private corsBlocked = new Set<string>();
+  private eqTried = false;
   private yt = new YouTubeMedia(() => this.youtube.loadApi(), () => this.videoHost);
   private media: MediaLike = this.html;
   private videoHost: HTMLElement | null = null;
@@ -136,6 +152,7 @@ export class PlayerService {
     // Messages from other parts of the app (storage full, errors…)
     window.addEventListener('vo-notice', (e) => this.flash(String((e as CustomEvent).detail)));
     this.setupAudioEvents();
+    this.fx.onFirstEnable = () => this.connectEq();
     this.restoreVolume();
     this.restoreSession();
     this.setupMediaSession();
@@ -198,16 +215,37 @@ export class PlayerService {
     if (!this.currentTrack()) return;
     if (this.isPlaying()) {
       this.wantsToPlay = false;
-      this.media.pause();
+      this.stopFading();
+      const el = this.media === this.html && this.fx.smoothFades() && this.fx.canFade ? this.html : null;
+      if (el) {
+        // Quick fade instead of a hard stop
+        this.isPlaying.set(false);
+        this.fx.fadeTo(el, 0, 250).then(() => {
+          if (!this.wantsToPlay) el.pause();
+          el.volume = this.targetVolume();
+        });
+      } else {
+        this.media.pause();
+      }
     } else {
       this.wantsToPlay = true;
+      this.ensureEq();
       if (!this.media.src) {
         this.loadAndPlay(this.currentTrack()!, this.pendingSeek || 0);
         return;
       }
-      this.media.play().catch((err) => {
-        if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') this.handleFailure(err);
-      });
+      const el = this.media === this.html && this.fx.smoothFades() && this.fx.canFade ? this.html : null;
+      if (el) el.volume = 0;
+      const ready = this.fx.active && !this.fx.running ? this.fx.resume() : null;
+      (ready ? ready.then(() => this.media.play()) : this.media.play())
+        .then(() => {
+          this.isPlaying.set(true);
+          if (el) this.fx.fadeTo(el, () => this.targetVolume(), 400);
+        })
+        .catch((err) => {
+          if (el) el.volume = this.targetVolume();
+          if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') this.handleFailure(err);
+        });
     }
   }
 
@@ -457,7 +495,17 @@ export class PlayerService {
 
   private sleepNow(): void {
     this.wantsToPlay = false;
-    this.media.pause();
+    this.stopFading();
+    if (this.media === this.html && this.fx.canFade) {
+      // Drift off: fade out over a few seconds
+      const el = this.html;
+      this.fx.fadeTo(el, 0, 6000).then(() => {
+        if (!this.wantsToPlay) el.pause();
+        el.volume = this.targetVolume();
+      });
+    } else {
+      this.media.pause();
+    }
     this.sleepAt.set(null);
     this.sleepTimer = null;
     this.flash('Sleep timer ended — good night');
@@ -465,6 +513,7 @@ export class PlayerService {
 
   private loadAndPlay(track: Track, startAt = 0): void {
     this.wantsToPlay = true;
+    this.ensureEq();
     this.clearLoadTimer();
     this.isLoading.set(true);
     this.currentTrack.set(track);
@@ -475,7 +524,7 @@ export class PlayerService {
     this.updateMediaSession(track);
     this.saveSession();
 
-    this.sourceFor(track).then((src) => {
+    Promise.all([this.sourceFor(track), this.fx.resume()]).then(([src]) => {
       if (this.currentTrack()?.id !== track.id) return; // user moved on
       if (!src) {
         this.handleFailure(new Error('Song is no longer on this device'));
@@ -507,29 +556,138 @@ export class PlayerService {
     return track.audio;
   }
 
-  /** Switch between the <audio> element and the YouTube player */
-  private useEngine(src: string): void {
+  /** Pick what plays this source: one of the <audio> elements or the YouTube player */
+  private useEngine(track: Track, src: string): void {
     const wantYouTube = src.startsWith(YT_PREFIX);
-    if (wantYouTube && this.media !== this.yt) {
-      this.html.pause();
-      this.html.removeAttribute('src');
-      this.html.load();
-      this.media = this.yt;
-    } else if (!wantYouTube && this.media === this.yt) {
-      this.yt.stop();
-      this.media = this.html;
+    if (wantYouTube) {
+      if (this.media !== this.yt) {
+        this.stopFading();
+        this.stopEl(this.html);
+        this.media = this.yt;
+      }
+    } else {
+      if (this.media === this.yt) this.yt.stop();
+      const el = this.crossfadeTarget || this.pickHtml(track, src);
+      this.crossfadeTarget = null;
+      if (el !== this.html && this.html !== this.fading) this.stopEl(this.html);
+      this.html = el;
+      this.media = el;
     }
     this.mode.set(wantYouTube ? 'youtube' : 'audio');
-    this.applyVolume(this.isMuted() ? 0 : this.volume());
+    this.applyVolume(this.targetVolume());
+  }
+
+  /**
+   * Which <audio> element to use. With the equalizer on, audio has to allow
+   * it (CORS); live radio and sources that refused go through the plain one.
+   */
+  private pickHtml(track: Track, src: string): HTMLAudioElement {
+    const current = this.html === this.plain ? this.pair[0] : this.html;
+    if (!this.fx.active) return current;
+    if (!this.fx.running) return this.plain; // would be silent until the equalizer starts
+    if (src.startsWith('blob:')) return current;
+    if (track.isLive || this.corsBlocked.has(src)) return this.plain;
+    return current;
+  }
+
+  private targetVolume(): number {
+    return this.isMuted() ? 0 : this.volume();
   }
 
   private applyVolume(v: number): void {
-    this.html.volume = v;
+    for (const el of [...this.pair, this.plain]) if (el !== this.fading) el.volume = v;
     this.yt.volume = v;
   }
 
+  private stopEl(el: HTMLAudioElement): void {
+    this.fx.cancelFade(el);
+    el.pause();
+    if (el.getAttribute('src') !== null) {
+      el.removeAttribute('src');
+      el.load();
+    }
+  }
+
+  private stopFading(): void {
+    if (this.fading && this.fading !== this.html) this.stopEl(this.fading);
+    this.fading = null;
+  }
+
+  /** The equalizer was switched on earlier: connect before playing */
+  private ensureEq(): void {
+    if (this.fx.eqOn() && this.fx.canEq && !this.fx.active && !this.eqTried) this.connectEq();
+  }
+
+  /**
+   * Route the <audio> elements through the equalizer. Audio already loaded
+   * without CORS would go silent, so it's reloaded from the same spot.
+   */
+  private connectEq(): void {
+    if (!this.fx.canEq || this.eqTried) return;
+    this.eqTried = true;
+    const el = this.html;
+    const loaded = this.media === el && /^https?:/.test(el.src);
+    const wasPlaying = loaded && !el.paused;
+    const time = el.currentTime || 0;
+    if (loaded) this.stopEl(el);
+    this.fx.route([...this.pair]);
+    const track = this.currentTrack();
+    if (!loaded || !track) return;
+    if (wasPlaying) this.loadAndPlay(track, track.isLive ? 0 : time);
+    else this.pendingSeek = track.isLive ? null : time;
+  }
+
+  /** The equalizer needs CORS; if this source refuses, play it again without the equalizer */
+  private corsFallback(el: HTMLAudioElement): boolean {
+    const track = this.currentTrack();
+    const src = el.src;
+    if (!track || !this.fx.isRouted(el) || !/^https?:/.test(src) || this.corsBlocked.has(src)) return false;
+    this.corsBlocked.add(src);
+    this.startPlayback(track, src);
+    return true;
+  }
+
+  /** Near the end of a song: fade it out while the next one fades in */
+  private maybeCrossfade(): void {
+    const secs = this.fx.crossfade();
+    if (!secs || this.fading || !this.fx.canFade || this.media !== this.html || this.html === this.plain) return;
+    const track = this.currentTrack();
+    const el = this.html;
+    const d = el.duration;
+    if (!track || track.isLive || el.paused || !isFinite(d) || d < secs * 3) return;
+    const left = d - el.currentTime;
+    if (left > secs || left < 0.5) return;
+    if (this.repeatMode() === 'one' || this.sleepAt() === 'track') return;
+
+    const q = this.queue();
+    let i = this.queueIndex() + 1;
+    if (i >= q.length) {
+      if (this.repeatMode() !== 'all' && !this.offlineMode()) return; // autoplay takes over at the end
+      i = 0;
+    }
+    const next = q[i];
+    if (!next || next.isLive || next.audio.startsWith(YT_PREFIX)) return;
+    if (next.isPreview && this.autoFullVersion() && this.youtube.hasKey()) return; // will play on YouTube
+    if (!navigator.onLine && !DeviceMusicService.isDeviceTrack(next)) return;
+
+    this.fading = el;
+    this.crossfadeTarget = el === this.pair[0] ? this.pair[1] : this.pair[0];
+    this.fx.fadeTo(el, 0, secs * 1000).then(() => {
+      if (this.fading === el) this.fading = null;
+      if (el !== this.html) this.stopEl(el);
+    });
+    this.fadeInMs = secs * 1000;
+    this.queueIndex.set(i);
+    this.loadAndPlay(next);
+  }
+
   private startPlayback(track: Track, src: string): void {
-    this.useEngine(src);
+    this.clearLoadTimer();
+    const attempt = ++this.attempt;
+    const fadeIn = this.fadeInMs;
+    this.fadeInMs = 0;
+    this.useEngine(track, src);
+    if (fadeIn && this.media === this.html) this.html.volume = 0;
     this.media.src = src;
     this.media.load();
     if (this.media === this.yt && this.pendingSeek) {
@@ -549,12 +707,15 @@ export class PlayerService {
     this.media
       .play()
       .then(() => {
-        if (this.currentTrack()?.id !== track.id) return;
+        if (attempt !== this.attempt || this.currentTrack()?.id !== track.id) return;
+        if (fadeIn && this.media === this.html) this.fx.fadeTo(this.html, () => this.targetVolume(), fadeIn);
         this.consecutiveFailures = 0;
         this.storage.addRecentTrack(track);
         this.storage.recordPlay(track);
       })
       .catch((err) => {
+        if (attempt !== this.attempt) return; // an older load
+        if (this.media === this.html) this.html.volume = this.targetVolume();
         // Autoplay policy: the browser wants a tap first. Not a broken track.
         if (err?.name === 'NotAllowedError') {
           this.clearLoadTimer();
@@ -565,6 +726,7 @@ export class PlayerService {
         if (err?.name === 'AbortError') return; // superseded by another load
         // A stale rejection from a track we've already moved past
         if (this.currentTrack()?.id !== track.id) return;
+        if (this.media === this.html && this.corsFallback(this.html)) return;
         this.handleFailure(err);
       });
 
@@ -642,11 +804,11 @@ export class PlayerService {
   }
 
   private setupAudioEvents(): void {
-    this.html.preload = 'auto';
+    [...this.pair, this.plain].forEach((el) => (el.preload = 'auto'));
 
-    // Both engines emit the same events; only the active one is listened to
+    // All engines emit the same events; only the active one is listened to
     const on = (type: string, fn: () => void) =>
-      [this.html, this.yt].forEach((m: EventTarget) =>
+      [...this.pair, this.plain, this.yt].forEach((m: EventTarget) =>
         m.addEventListener(type, (e) => {
           if (e.target === this.media) fn();
         })
@@ -655,6 +817,7 @@ export class PlayerService {
     on('timeupdate', () => {
       this.currentTime.set(this.media.currentTime);
       if (Date.now() - this.lastSave > 5000) this.saveSession();
+      this.maybeCrossfade();
     });
 
     on('durationchange', () => {
@@ -697,6 +860,7 @@ export class PlayerService {
       if (this.media === this.html) {
         // Ignore errors from clearing src
         if (!this.html.src || this.html.src === location.href) return;
+        if (this.corsFallback(this.html)) return;
         this.handleFailure(this.html.error);
       } else {
         this.handleFailure(this.yt.error);
@@ -818,9 +982,8 @@ export class PlayerService {
 
   /** Stop and unload the current song, so the next play() loads it afresh */
   private stopMedia(): void {
-    this.html.pause();
-    this.html.removeAttribute('src');
-    this.html.load();
+    this.fading = null;
+    [...this.pair, this.plain].forEach((el) => this.stopEl(el));
     this.yt.stop();
     this.media = this.html;
     this.mode.set('audio');

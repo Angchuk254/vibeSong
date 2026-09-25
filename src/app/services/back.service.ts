@@ -26,6 +26,8 @@ export class BackService {
   private nextId = 1;
   /** A history.back() we triggered ourselves — don't treat it as the user's */
   private ignorePops = 0;
+  /** History steps of overlays closed from the UI, not yet removed */
+  private spareSteps = 0;
 
   constructor() {
     // Navigating inside the app while something is open: the overlay closes,
@@ -60,7 +62,13 @@ export class BackService {
           if (open && !entry) {
             entry = { id: this.nextId++, close: () => { entry = null; close(); } };
             this.stack.push(entry);
-            history.pushState({ ...(history.state || {}), voOverlay: entry.id }, '');
+            if (this.spareSteps > 0) {
+              // Another overlay just closed in the same tap: take over its history step
+              this.spareSteps--;
+              history.replaceState({ ...(history.state || {}), voOverlay: entry.id }, '');
+            } else {
+              history.pushState({ ...(history.state || {}), voOverlay: entry.id }, '');
+            }
           } else if (!open && entry) {
             // Closed from the UI: drop our history step without closing anything else
             const i = this.stack.indexOf(entry);
@@ -68,14 +76,24 @@ export class BackService {
             const abandoned = entry.abandoned;
             entry = null;
             if (!abandoned && history.state?.voOverlay) {
-              this.ignorePops++;
-              history.back();
+              // Give the step back a moment later, in case another overlay opens right now
+              this.spareSteps++;
+              setTimeout(() => this.releaseSpareSteps());
             }
           }
         });
       },
       injector ? { injector } : undefined
     );
+  }
+
+  private releaseSpareSteps(): void {
+    if (!this.spareSteps) return;
+    const n = this.spareSteps;
+    this.spareSteps = 0;
+    if (!history.state?.voOverlay) return;
+    this.ignorePops++;
+    history.go(-n);
   }
 
   /**
