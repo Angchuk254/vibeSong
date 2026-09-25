@@ -26,19 +26,5 @@
         ]
       }
     }
-  ],
-  "dataGroups": [
-    {
-      "name": "jamendo-api",
-      "urls": [
-        "https://api.jamendo.com/**"
-      ],
-      "cacheConfig": {
-        "maxSize": 100,
-        "maxAge": "1h",
-        "strategy": "freshness",
-        "timeout": "5s"
-      }
-    }
   ]
 }

@@ -104,6 +104,26 @@ export class YouTubeMedia extends EventTarget {
     this.stopTimer();
   }
 
+  /**
+   * The page element holding the player is going away (e.g. admin pages):
+   * destroy the player but remember the video and position, so the next
+   * play() rebuilds it in the new host and carries on.
+   */
+  detach(): void {
+    if (!this.player && !this.ready) return;
+    const t = this.currentTime;
+    const wasLoaded = this.loadedId === this.videoId;
+    this.stopTimer();
+    this.pendingPlay?.reject(Object.assign(new Error('Player closed'), { name: 'AbortError' }));
+    this.pendingPlay = null;
+    try { this.player?.destroy?.(); } catch { /* already gone */ }
+    this.player = null;
+    this.ready = null;
+    this.loadedId = '';
+    if (wasLoaded && t > 0) this.startAt = t;
+    this.emit('pause');
+  }
+
   /** Load the YouTube player ahead of time so a tap starts playback instantly */
   prepare(): void {
     this.ensurePlayer().catch(() => undefined);

@@ -42,22 +42,39 @@ const MAX_PLAY_STATS = 300;
 
 const MAX_RECENT = 50;
 
+/** Show a short message in the player's toast (see PlayerService) */
+export function notify(message: string): void {
+  try {
+    window.dispatchEvent(new CustomEvent('vo-notice', { detail: message }));
+  } catch {
+    /* no window (tests) */
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class StorageService {
   constructor() {
     this.cleanLegacyTracks();
+    // Ask the browser not to clear our data when the device is low on space
+    try {
+      navigator.storage?.persist?.().catch(() => undefined);
+    } catch {
+      /* not supported */
+    }
   }
 
   // ── Data Migration / Cleanup ──
   private cleanLegacyTracks(): void {
     try {
-      const isInvalidTrack = (t: Track) => {
-        // Radio stations always have 0 duration, so we should allow them.
-        if (t.category === 'Radio' || t.provider === 'radio' || t.isLive) return false;
-        // Uploads may not have a duration stored; they're still playable
-        if (t.provider === 'supabase') return false;
-        return t.duration === 0 || t.audio.includes('format=VBR') || t.audio.includes('sample-1');
-      };
+      // Only drop tracks from sources that no longer exist. Never judge by
+      // duration: radio, YouTube links and some local files legitimately have 0.
+      const isInvalidTrack = (t: Track) =>
+        !t?.id ||
+        !t.audio ||
+        t.provider === 'local' || // old SoundHelix placeholder songs
+        t.provider === 'jamendo' ||
+        t.audio.includes('format=VBR') ||
+        t.audio.includes('sample-1');
       
       const favorites = this.getFavorites();
       const validFavs = favorites.filter((t) => !isInvalidTrack(t));
@@ -362,10 +379,35 @@ export class StorageService {
   }
 
   private setItem(key: string, value: unknown): void {
+    const json = JSON.stringify(value);
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, json);
     } catch (e) {
-      console.warn('[StorageService] Failed to save:', key, e);
+      // Storage full: drop things that can be rebuilt, then try once more
+      console.warn('[StorageService] Save failed, freeing space:', key, e);
+      this.freeSpace(key);
+      try {
+        localStorage.setItem(key, json);
+      } catch (e2) {
+        console.error('[StorageService] Could not save', key, e2);
+        notify("Couldn't save — your browser storage is full. Export a backup from Library.");
+      }
+    }
+  }
+
+  /** Remove caches and history (never likes, playlists or artists) */
+  private freeSpace(except: string): void {
+    const rebuildable = ['vo_youtube_cache', KEYS.SESSION, KEYS.PLAYS, KEYS.SEARCHES, 'vo_youtube_full'];
+    for (const k of rebuildable) {
+      if (k !== except) {
+        try { localStorage.removeItem(k); } catch { /* ignore */ }
+      }
+    }
+    if (except !== KEYS.RECENT) {
+      const recent = this.getRecentTracks();
+      if (recent.length > 20) {
+        try { localStorage.setItem(KEYS.RECENT, JSON.stringify(recent.slice(0, 20))); } catch { /* ignore */ }
+      }
     }
   }
 

@@ -2,7 +2,7 @@
 // vibeOnly — Music Player Component
 // ============================================
 
-import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { PlayerService, StorageService, LibraryService, LyricsService, MusicApiService } from '../services';
 import { Lyrics } from '../services/lyrics.service';
@@ -1036,7 +1036,8 @@ export class PlayerComponent {
 
   constructor() {
     // Keeps the sleep countdown label fresh
-    setInterval(() => this.now.set(Date.now()), 30000);
+    const tick = setInterval(() => this.now.set(Date.now()), 30000);
+    inject(DestroyRef).onDestroy(() => clearInterval(tick));
 
     // Fetch lyrics when the lyrics tab is open for a new song
     effect(() => {

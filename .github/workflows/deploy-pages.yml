@@ -30,6 +30,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Unit tests
+        run: npx ng test --watch=false
+
       - name: Build
         run: npx ng build --base-href "/${{ github.event.repository.name }}/"
 

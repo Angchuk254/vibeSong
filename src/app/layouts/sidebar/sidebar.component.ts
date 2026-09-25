@@ -54,6 +54,10 @@ import { ThemeService, LibraryService } from '../../services';
       </div>
 
       <div class="sidebar__footer">
+        <a routerLink="/settings" routerLinkActive="active" class="sidebar__link sidebar__settings">
+          <i class="bi bi-gear-fill"></i>
+          <span>Settings</span>
+        </a>
         <button class="sidebar__theme-btn" (click)="theme.toggleTheme()">
           <i class="bi" [class.bi-moon-fill]="theme.isDark()" [class.bi-sun-fill]="!theme.isDark()"></i>
           <span>{{ theme.isDark() ? 'Dark' : 'Light' }} Mode</span>

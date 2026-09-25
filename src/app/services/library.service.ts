@@ -5,10 +5,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Playlist, Track, ArtistSummary, Collection } from '../models';
 import { StorageService } from './storage.service';
+import { DeviceMusicService } from './device-music.service';
+import { YouTubeService } from './youtube.service';
 
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
   private storage = inject(StorageService);
+  private device = inject(DeviceMusicService);
 
   readonly playlists = signal<Playlist[]>(this.storage.getPlaylists());
   readonly followedArtists = signal<ArtistSummary[]>(this.storage.getFollowedArtists());
@@ -105,20 +108,36 @@ export class LibraryService {
 
   // ── Backup ──
 
-  exportLibrary(): void {
-    const blob = new Blob([this.storage.exportLibrary()], { type: 'application/json' });
+  /** Downloads a backup; returns how many local audio files it could NOT include */
+  async exportLibrary(): Promise<number> {
+    await this.device.ready;
+    const mine = this.device.tracks();
+    const data = JSON.parse(this.storage.exportLibrary());
+    // YouTube songs are just links, so they travel in the backup; audio files are too big
+    data.mySongs = mine
+      .filter((t) => t.provider === 'youtube')
+      .map((t) => ({ id: YouTubeService.idOf(t), title: t.name, artist: t.artist_name, thumb: t.image, category: t.category }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `vibeonly-library-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    return mine.filter((t) => t.provider === 'device').length;
   }
 
-  importLibrary(json: string): { songs: number; playlists: number; artists: number } {
+  async importLibrary(json: string): Promise<{ songs: number; playlists: number; artists: number; mySongs: number }> {
     const result = this.storage.importLibrary(json);
+    let mySongs = 0;
+    const list = (JSON.parse(json).mySongs || []) as { id: string; title: string; artist: string; thumb: string; category: string }[];
+    const byCat = new Map<string, typeof list>();
+    list.filter((s) => s?.id && /^[\w-]{11}$/.test(s.id)).forEach((s) => byCat.set(s.category || 'ladakhi', [...(byCat.get(s.category || 'ladakhi') || []), s]));
+    for (const [cat, songs] of byCat) {
+      mySongs += await this.device.addYouTube(songs.map((s) => ({ id: s.id, title: s.title, artist: s.artist, thumb: s.thumb })), cat);
+    }
     this.refresh();
     this.followedArtists.set(this.storage.getFollowedArtists());
-    return result;
+    return { ...result, mySongs };
   }
 
   getPlaylist(id: string): Playlist | undefined {

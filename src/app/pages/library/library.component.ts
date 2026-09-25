@@ -23,7 +23,7 @@ type Sort = 'recent' | 'title' | 'artist';
         <div class="lib-top">
           <h1 class="lib-title">Your Library</h1>
           <div class="backup">
-            <button class="vo-btn vo-btn-ghost" (click)="library.exportLibrary()" title="Download a backup of your likes, playlists and artists">
+            <button class="vo-btn vo-btn-ghost" (click)="exportBackup()" title="Download a backup of your likes, playlists, artists and YouTube songs">
               <i class="bi bi-download"></i> <span class="vo-desktop-only">Export</span>
             </button>
             <label class="vo-btn vo-btn-ghost" title="Restore or merge a backup file">
@@ -869,22 +869,31 @@ export class LibraryComponent implements OnInit {
     this.sort.set((e.target as HTMLSelectElement).value as Sort);
   }
 
-  importFile(e: Event): void {
+  async exportBackup(): Promise<void> {
+    const filesLeftOut = await this.library.exportLibrary();
+    this.importMessage.set(
+      'Backup downloaded — keep it somewhere safe (e.g. Google Drive) and use Import on any device to restore.' +
+        (filesLeftOut ? ` Note: ${filesLeftOut} audio file${filesLeftOut === 1 ? ' is' : 's are'} not included (too big) — keep your original files.` : '')
+    );
+    setTimeout(() => this.importMessage.set(''), 10000);
+  }
+
+  async importFile(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    file.text().then((text) => {
-      try {
-        const r = this.library.importLibrary(text);
-        this.player.favoritesVersion.update((v) => v + 1);
-        this.loadData();
-        this.importMessage.set(`Imported ${r.songs} liked songs, ${r.playlists} playlists and ${r.artists} artists.`);
-      } catch {
-        this.importMessage.set("That file isn't a vibeOnly backup.");
-      }
-      input.value = '';
-      setTimeout(() => this.importMessage.set(''), 6000);
-    });
+    try {
+      const r = await this.library.importLibrary(await file.text());
+      this.player.favoritesVersion.update((v) => v + 1);
+      this.loadData();
+      this.importMessage.set(
+        `Imported ${r.songs} liked songs, ${r.playlists} playlists, ${r.artists} artists and ${r.mySongs} YouTube songs.`
+      );
+    } catch {
+      this.importMessage.set("That file isn't a vibeOnly backup.");
+    }
+    input.value = '';
+    setTimeout(() => this.importMessage.set(''), 8000);
   }
 
   ngOnInit(): void {

@@ -429,7 +429,7 @@ export class SettingsComponent {
   }
 
   clearCache() {
-    if (confirm('Are you sure you want to clear your favorites and play history?')) {
+    if (confirm('This deletes your liked songs, playlists, followed artists, history and settings on this device (My Songs are kept). Tip: export a backup from Library first. Continue?')) {
       localStorage.clear();
       window.location.reload();
     }

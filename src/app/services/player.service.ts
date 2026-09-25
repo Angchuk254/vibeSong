@@ -101,6 +101,10 @@ export class PlayerService {
 
   /** The page element the YouTube player lives in (see VideoDockComponent) */
   setVideoHost(el: HTMLElement | null): void {
+    if (!el && this.videoHost) {
+      // Pause event from detach() only reaches us if YouTube is the active engine
+      this.yt.detach();
+    }
     this.videoHost = el;
   }
 
@@ -115,6 +119,8 @@ export class PlayerService {
   }
 
   constructor() {
+    // Messages from other parts of the app (storage full, errors…)
+    window.addEventListener('vo-notice', (e) => this.flash(String((e as CustomEvent).detail)));
     this.setupAudioEvents();
     this.restoreVolume();
     this.restoreSession();
@@ -545,6 +551,12 @@ export class PlayerService {
     // play() rejecting and the 'error' event both report the same failure
     if (!track || this.failedIds.has(track.id)) return;
 
+    // Offline isn't the song's fault: keep the queue intact
+    if (!navigator.onLine && !track.audio.startsWith(DEVICE_PREFIX)) {
+      this.flash("You're offline — songs from My Songs (files) still play");
+      return;
+    }
+
     this.failedIds.add(track.id);
     this.consecutiveFailures++;
 
@@ -670,8 +682,8 @@ export class PlayerService {
     if (!('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
     const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
-      ['play', () => this.togglePlay()],
-      ['pause', () => this.togglePlay()],
+      ['play', () => !this.isPlaying() && this.togglePlay()],
+      ['pause', () => this.isPlaying() && this.togglePlay()],
       ['previoustrack', () => this.playPrevious()],
       ['nexttrack', () => this.playNext()],
       ['seekbackward', () => this.seekBy(-10)],
@@ -752,7 +764,8 @@ export class PlayerService {
   private flash(message: string): void {
     this.notice.set(message);
     if (this.noticeTimer) clearTimeout(this.noticeTimer);
-    this.noticeTimer = setTimeout(() => this.notice.set(null), 3000);
+    // Longer messages stay up longer so they can be read
+    this.noticeTimer = setTimeout(() => this.notice.set(null), Math.min(8000, Math.max(3000, message.length * 70)));
   }
 
   private clearLoadTimer(): void {

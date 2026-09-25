@@ -231,8 +231,8 @@ export class MusicApiService {
   /** More tracks like this one, used for autoplay when the queue runs out */
   getSimilarTracks(track: Track, limit = 15): Observable<Track[]> {
     if (track.isLive) return this.getRadioStations(track.tags?.split(',')[0] || 'india', limit);
-    if (track.provider === 'device') {
-      // Keep going through your own songs from the same category first
+    if (track.provider === 'device' || (track.provider === 'youtube' && track.category)) {
+      // Keep going through your own songs (files and YouTube links) from the same category first
       const mine = this.shuffle(this.device.byCategory(track.category || '').filter((t) => t.id !== track.id));
       const cat = MUSIC_CATEGORIES.find((c) => c.id === track.category);
       return (cat ? this.getCategoryTracks(cat, limit) : this.audius.getTrendingTracks(limit)).pipe(
