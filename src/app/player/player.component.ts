@@ -2,8 +2,10 @@
 // vibeOnly — Music Player Component
 // ============================================
 
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
-import { PlayerService, StorageService, LibraryService } from '../services';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { PlayerService, StorageService, LibraryService, LyricsService } from '../services';
+import { Lyrics } from '../services/lyrics.service';
 import { TrackListItemComponent } from '../shared/track-list-item/track-list-item.component';
 import { sourceMeta } from '../shared/source-badge';
 import { Track } from '../models';
@@ -92,8 +94,12 @@ import { Track } from '../models';
             <div class="player__expanded-info">
               <h2 class="player__track-name" [title]="track.name">{{ track.name }}</h2>
               <p class="player__artist-name">
-                {{ track.artist_name }}
-                @if (track.genre) { <span class="player__genre">· {{ track.genre }}</span> }
+                @if (track.artistRef) {
+                  <a class="artist-link" (click)="openArtist(track.artistRef)" (keydown.enter)="openArtist(track.artistRef)" tabindex="0">{{ track.artist_name }}</a>
+                } @else {
+                  {{ track.artist_name }}
+                }
+                @if (track.genre) { <span class="player__genre">&nbsp;· {{ track.genre }}</span> }
               </p>
               @if (track.isPreview) {
                 <p class="player__hint"><i class="bi bi-info-circle"></i> 30-second preview — full song isn't free to stream</p>
@@ -186,13 +192,35 @@ import { Track } from '../models';
             <div class="player__recent">
               <div class="player__tabs">
                 <button [class.active]="panel() === 'queue'" (click)="panel.set('queue')">Up Next ({{ player.upNext().length }})</button>
+                @if (!player.isLive()) {
+                  <button [class.active]="panel() === 'lyrics'" (click)="panel.set('lyrics')">Lyrics</button>
+                }
                 <button [class.active]="panel() === 'recent'" (click)="showRecent()">Recently Played</button>
                 @if (panel() === 'queue' && player.upNext().length > 0) {
                   <button class="player__clear" (click)="player.clearQueue()">Clear</button>
                 }
               </div>
 
-              @if (panel() === 'queue') {
+              @if (panel() === 'lyrics') {
+                <div class="player__lyrics" [class.player__lyrics--synced]="lyrics()?.synced">
+                  @if (lyricsLoading()) {
+                    <p class="player__empty"><i class="bi bi-arrow-repeat player__spin"></i> Finding lyrics…</p>
+                  } @else if (lyrics()?.instrumental) {
+                    <p class="player__empty">♪ Instrumental ♪</p>
+                  } @else if (lyrics(); as l) {
+                    @for (line of l.lines; track $index; let i = $index) {
+                      <p class="lyric" [class.active]="i === activeLine()" [class.past]="l.synced && i < activeLine()"
+                         [attr.data-line]="i"
+                         [attr.tabindex]="l.synced ? 0 : null"
+                         (click)="l.synced && player.seekToTime(line.time)"
+                         (keydown.enter)="l.synced && player.seekToTime(line.time)">{{ line.text || '♪' }}</p>
+                    }
+                    <p class="player__lyrics-credit">Lyrics from LRCLIB</p>
+                  } @else {
+                    <p class="player__empty">No lyrics found for this song.</p>
+                  }
+                </div>
+              } @else if (panel() === 'queue') {
                 <div class="player__queue">
                   @for (q of player.upNext(); track q.id; let i = $index) {
                     <div class="player__q-item">
@@ -892,6 +920,43 @@ import { Track } from '../models';
         bottom: calc(var(--vo-player-height) + 16px);
       }
     }
+
+    // ── Lyrics ──
+    .player__lyrics {
+      max-height: 55vh;
+      overflow-y: auto;
+      padding: 8px 4px 40px;
+      scrollbar-width: thin;
+      mask-image: linear-gradient(180deg, transparent 0, #000 8%, #000 88%, transparent 100%);
+    }
+
+    .lyric {
+      margin: 0;
+      padding: 6px 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1.45;
+      color: var(--vo-text-secondary);
+      transition: color 0.25s ease, transform 0.25s ease;
+    }
+
+    .player__lyrics--synced .lyric {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--vo-text-muted);
+      cursor: pointer;
+      transform-origin: left center;
+
+      &:hover { color: var(--vo-text-secondary); }
+      &.past { color: var(--vo-text-secondary); opacity: 0.6; }
+      &.active { color: var(--vo-text-primary); transform: scale(1.03); }
+    }
+
+    .player__lyrics-credit {
+      margin-top: 24px;
+      font-size: 0.7rem;
+      color: var(--vo-text-muted);
+    }
   `],
 })
 export class PlayerComponent {
@@ -901,7 +966,22 @@ export class PlayerComponent {
 
   readonly isExpanded = signal(false);
   readonly recentTracks = signal<Track[]>([]);
-  readonly panel = signal<'queue' | 'recent'>('queue');
+  readonly panel = signal<'queue' | 'lyrics' | 'recent'>('queue');
+  private readonly router = inject(Router);
+  private readonly lyricsService = inject(LyricsService);
+  readonly lyrics = signal<Lyrics | null>(null);
+  readonly lyricsLoading = signal(false);
+  private lyricsFor: string | null = null;
+
+  /** Index of the synced line being sung right now */
+  readonly activeLine = computed(() => {
+    const l = this.lyrics();
+    if (!l?.synced) return -1;
+    const t = this.player.currentTime() + 0.25;
+    let idx = -1;
+    for (let i = 0; i < l.lines.length && l.lines[i].time <= t; i++) idx = i;
+    return idx;
+  });
   readonly sleepMenu = signal(false);
   readonly sleepOptions = [15, 30, 45, 60, 90];
   private readonly now = signal(Date.now());
@@ -917,6 +997,35 @@ export class PlayerComponent {
   constructor() {
     // Keeps the sleep countdown label fresh
     setInterval(() => this.now.set(Date.now()), 30000);
+
+    // Fetch lyrics when the lyrics tab is open for a new song
+    effect(() => {
+      const track = this.player.currentTrack();
+      if (!track || !this.isExpanded() || this.panel() !== 'lyrics' || this.lyricsFor === track.id) return;
+      this.lyricsFor = track.id;
+      this.lyrics.set(null);
+      this.lyricsLoading.set(true);
+      this.lyricsService.getLyrics(track).subscribe({
+        next: (l) => {
+          if (this.player.currentTrack()?.id !== track.id) return;
+          this.lyrics.set(l);
+          this.lyricsLoading.set(false);
+        },
+        error: () => this.lyricsLoading.set(false),
+      });
+    });
+
+    // Keep the current lyric line centred
+    effect(() => {
+      const i = this.activeLine();
+      if (i < 0) return;
+      setTimeout(() => document.querySelector(`.lyric[data-line="${i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    });
+  }
+
+  openArtist(ref: string): void {
+    this.isExpanded.set(false);
+    this.router.navigate(['/artist', ref]);
   }
 
   art(track: Track): string {

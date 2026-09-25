@@ -3,6 +3,7 @@
 // ============================================
 
 import { Component, input, output, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { Track } from '../../models';
 import { PlayerService } from '../../services';
 import { DurationPipe } from '../../pipes';
@@ -44,7 +45,11 @@ import { sourceMeta } from '../source-badge';
             <span class="vo-badge">PREVIEW</span>
           }
           <i class="bi provider-icon" [class]="source().icon" [title]="source().label"></i>
-          <span class="track-item__artist-name">{{ track().artist_name }}</span>
+          @if (track().artistRef) {
+            <a class="track-item__artist-name artist-link" (click)="openArtist($event)" (keydown.enter)="openArtist($event)" tabindex="0">{{ track().artist_name }}</a>
+          } @else {
+            <span class="track-item__artist-name">{{ track().artist_name }}</span>
+          }
         </p>
       </div>
       <span class="track-item__duration">
@@ -212,6 +217,13 @@ export class TrackListItemComponent {
   readonly remove = output<Track>();
 
   private player = inject(PlayerService);
+  private router = inject(Router);
+
+  openArtist(e: Event): void {
+    e.stopPropagation();
+    const ref = this.track().artistRef;
+    if (ref) this.router.navigate(['/artist', ref]);
+  }
 
   isFav(): boolean {
     return this.player.isFavorite(this.track().id);

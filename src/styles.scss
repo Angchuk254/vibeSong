@@ -384,3 +384,15 @@ a {
     border-color: #e5484d;
   }
 }
+
+// Artist names that open the artist page
+.artist-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--vo-text-primary);
+    text-decoration: underline;
+  }
+}

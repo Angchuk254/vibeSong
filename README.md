@@ -1,29 +1,36 @@
-# VibeSong
+# vibeOnly (VibeSong)
 
-A personal Spotify-style player.
+A free, ad-free, no-login music app in the style of Spotify. It runs entirely in the browser and uses only free, keyless music sources.
 
 ## Music sources
 
 | Source | What you get | Notes |
 | --- | --- | --- |
-| Your Supabase uploads | Full songs | Uploaded through `/admin/upload` |
-| [Audius](https://audius.co) | Full-length songs | Free, no API key. Powers Trending, genre rows, Made For You, and Autoplay |
-| iTunes Search | 30-second previews | Mainstream Bollywood, Punjabi and Nepali catalog, labelled **PREVIEW** |
-| Internet Archive | Full songs | Public-domain recordings |
-| Radio Browser | Live radio | Only HTTPS, non-HLS stations that passed their last check, labelled **LIVE** |
+| [Audius](https://audius.co) | Full-length songs, artists, playlists, albums | Powers Trending, 40+ genres, Made For You, Autoplay and artist pages |
+| iTunes Search | 30-second previews | Mainstream Bollywood, Punjabi, Tamil, Telugu, K-Pop, Arabic and more, labelled **PREVIEW** |
+| Internet Archive | Full songs | Public-domain recordings, including 78rpm-era classics |
+| Radio Browser | Live radio | HTTPS, non-HLS stations only, labelled **LIVE**. Covers India, Nepal, news, lo-fi, jazz and more |
+| [LRCLIB](https://lrclib.net) | Synced lyrics | Shown in the full-screen player |
+| Your Supabase uploads (optional) | Full songs | Add your URL and anon key in `src/app/core/environment.ts` to enable uploads and `/admin` |
 
-## Setup
+No setup is needed: `npm install && npm start`.
 
-Copy `src/app/core/environment.example.ts` to `src/app/core/environment.ts` and add your Supabase URL and anon key. The real file is git-ignored.
+## Features
 
-## Player features
+- **Browse:** 79 categories across genres, languages and regions, moods and live radio
+- **Search:** top result, songs, artists, playlists and albums, previews and radio, plus recent searches
+- **Artist pages:** popular songs, bio, follower count, and Follow
+- **Public playlists and albums:** play, shuffle, queue, or "Save to library"
+- **Your library:** Liked Songs (filter and sort), playlists (create, rename, reorder, suggestions), followed artists, stats (top artists, On Repeat), and backup export/import as JSON
+- **Player:** auto-skip broken songs, Autoplay similar songs, Up Next queue editing, synced lyrics, sleep timer, shuffle and repeat, lock-screen controls, and resume after reload
+- **Keyboard shortcuts:** Space play/pause, ←/→ seek, Shift+←/→ previous/next, ↑/↓ volume, S shuffle, R repeat, L like, M mute
 
-- Broken or slow songs are skipped automatically
-- Autoplay: when the queue ends, similar songs keep playing
-- Up Next queue: play next, add to queue, reorder, remove
-- Playlists, Liked Songs, listening stats (top artists, On Repeat)
-- Sleep timer, lock-screen and headphone controls, and resume after reload
-- Keyboard shortcuts: Space play/pause, ←/→ seek, Shift+←/→ previous/next, ↑/↓ volume, S shuffle, R repeat, L like, M mute
+Everything personal is stored in your browser's localStorage. There are no accounts and no tracking.
+
+## Publish it (GitHub Pages)
+
+`.github/workflows/deploy-pages.yml` builds the app and deploys it on every push to `clean-Web-React`.
+One-time setup: **Settings → Pages → Source: GitHub Actions**. The site is then live at `https://<user>.github.io/vibeSong/`.
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
 

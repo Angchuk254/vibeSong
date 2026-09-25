@@ -3,7 +3,7 @@
 // ============================================
 
 import { Injectable } from '@angular/core';
-import { Track, Playlist, ThemeMode } from '../models';
+import { Track, Playlist, ThemeMode, ArtistSummary } from '../models';
 
 const KEYS = {
   FAVORITES: 'vo_favorites',
@@ -14,6 +14,8 @@ const KEYS = {
   PLAYS: 'vo_plays',
   SESSION: 'vo_session',
   PLAYER_PREFS: 'vo_player_prefs',
+  ARTISTS: 'vo_followed_artists',
+  SEARCHES: 'vo_recent_searches',
 } as const;
 
 export interface PlayerSession {
@@ -156,6 +158,88 @@ export class StorageService {
 
   clearPlayStats(): void {
     this.removeItem(KEYS.PLAYS);
+  }
+
+  // ── Followed artists ──
+
+  getFollowedArtists(): ArtistSummary[] {
+    return this.getItem<ArtistSummary[]>(KEYS.ARTISTS) || [];
+  }
+
+  toggleFollowArtist(artist: ArtistSummary): boolean {
+    const list = this.getFollowedArtists();
+    const idx = list.findIndex((a) => a.ref === artist.ref);
+    if (idx >= 0) list.splice(idx, 1);
+    else list.unshift({ ref: artist.ref, name: artist.name, image: artist.image, verified: artist.verified });
+    this.setItem(KEYS.ARTISTS, list);
+    return idx < 0;
+  }
+
+  // ── Recent searches ──
+
+  getRecentSearches(): string[] {
+    return this.getItem<string[]>(KEYS.SEARCHES) || [];
+  }
+
+  addRecentSearch(q: string): void {
+    const query = q.trim();
+    if (query.length < 2) return;
+    const list = [query, ...this.getRecentSearches().filter((s) => s.toLowerCase() !== query.toLowerCase())].slice(0, 12);
+    this.setItem(KEYS.SEARCHES, list);
+  }
+
+  clearRecentSearches(): void {
+    this.removeItem(KEYS.SEARCHES);
+  }
+
+  // ── Backup ──
+
+  /** Everything personal, for export/import */
+  exportLibrary(): string {
+    return JSON.stringify({
+      app: 'vibeOnly',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      favorites: this.getFavorites(),
+      playlists: this.getPlaylists(),
+      artists: this.getFollowedArtists(),
+    }, null, 2);
+  }
+
+  /** Merges a backup into the current library; returns what was added */
+  importLibrary(json: string): { songs: number; playlists: number; artists: number } {
+    const data = JSON.parse(json);
+    if (!data || typeof data !== 'object') throw new Error('Not a vibeOnly backup');
+    const result = { songs: 0, playlists: 0, artists: 0 };
+
+    const favs = this.getFavorites();
+    const favIds = new Set(favs.map((t) => t.id));
+    for (const t of (data.favorites || []) as Track[]) {
+      if (t?.id && t.audio && !favIds.has(t.id)) { favs.push(t); favIds.add(t.id); result.songs++; }
+    }
+    this.setItem(KEYS.FAVORITES, favs);
+
+    const playlists = this.getPlaylists();
+    for (const p of (data.playlists || []) as Playlist[]) {
+      if (!p?.id || !Array.isArray(p.tracks)) continue;
+      const existing = playlists.find((x) => x.id === p.id);
+      if (existing) {
+        const ids = new Set(existing.tracks.map((t) => t.id));
+        existing.tracks.push(...p.tracks.filter((t) => t?.id && !ids.has(t.id)));
+      } else {
+        playlists.push(p);
+        result.playlists++;
+      }
+    }
+    this.setItem(KEYS.PLAYLISTS, playlists);
+
+    const artists = this.getFollowedArtists();
+    const refs = new Set(artists.map((a) => a.ref));
+    for (const a of (data.artists || []) as ArtistSummary[]) {
+      if (a?.ref && !refs.has(a.ref)) { artists.push(a); refs.add(a.ref); result.artists++; }
+    }
+    this.setItem(KEYS.ARTISTS, artists);
+    return result;
   }
 
   // ── Player session ──

@@ -1,24 +1,20 @@
 import { Injectable } from '@angular/core';
 import { Observable, from, of } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Track } from '../../models';
 import { MusicProvider } from './music-provider.interface';
-import { environment } from '../environment';
+import { environment, hasSupabase } from '../environment';
 
 @Injectable({ providedIn: 'root' })
 export class SupabaseProvider implements MusicProvider {
   id = 'supabase';
   name = 'Supabase Storage';
 
-  private supabase: SupabaseClient;
-
-  constructor() {
-    this.supabase = createClient(
-      environment.supabase.url,
-      environment.supabase.key
-    );
-  }
+  /** Null when no Supabase project is configured — uploads are simply skipped */
+  private supabase: SupabaseClient | null = hasSupabase()
+    ? createClient(environment.supabase.url, environment.supabase.key)
+    : null;
 
   getTrendingTracks(limit = 10): Observable<Track[]> {
     return this.fetchTracks('trending', limit);
@@ -29,8 +25,8 @@ export class SupabaseProvider implements MusicProvider {
   }
 
   searchTracks(query: string, limit = 10): Observable<Track[]> {
-    if (!query.trim()) return of([]);
-    
+    if (!query.trim() || !this.supabase) return of([]);
+
     // Characters that would break PostgREST's or() filter syntax
     query = query.replace(/[,()%*\\]/g, ' ').trim();
     if (!query) return of([]);
@@ -59,6 +55,8 @@ export class SupabaseProvider implements MusicProvider {
   }
 
   private fetchTracks(category: string, limit: number): Observable<Track[]> {
+    if (!this.supabase) return of([]);
+
     // We assume there is a 'tracks' table in your Supabase database.
     // If you only want to read directly from a storage bucket, we would use:
     // this.supabase.storage.from('music').list()

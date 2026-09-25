@@ -28,6 +28,32 @@ export interface Track {
   isPreview?: boolean;
   /** Live stream with no fixed duration (radio) */
   isLive?: boolean;
+  /** Link to the artist page, e.g. "audius:abc12" or "itunes:1234" */
+  artistRef?: string;
+}
+
+/** An artist from any source */
+export interface ArtistSummary {
+  ref: string; // "audius:<id>" | "itunes:<id>"
+  name: string;
+  image: string;
+  cover?: string;
+  bio?: string;
+  followers?: number;
+  trackCount?: number;
+  verified?: boolean;
+}
+
+/** A public playlist or album from a source (e.g. Audius) */
+export interface Collection {
+  ref: string; // "audius:<id>"
+  name: string;
+  owner: string;
+  image: string;
+  description?: string;
+  isAlbum?: boolean;
+  trackCount?: number;
+  tracks?: Track[];
 }
 
 /** Represents an artist */
@@ -71,6 +97,8 @@ export interface MusicCategory {
   tag: string; // Jamendo tag for search
   description: string;
   sources?: CategorySources;
+  /** Section on the Browse page */
+  group?: 'genre' | 'language' | 'mood' | 'radio';
 }
 
 /** Where a category pulls its music from */
@@ -83,6 +111,8 @@ export interface CategorySources {
   audius?: string[];
   /** iTunes search term (30s previews of mainstream songs) */
   itunes?: string;
+  /** iTunes storefront, e.g. 'KR' for K-pop (default 'IN') */
+  itunesCountry?: string;
   /** Radio Browser tag/region (live streams) */
   radio?: string;
   /** Internet Archive search query (full-length, public domain) */

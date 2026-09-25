@@ -4,3 +4,5 @@ export { SkeletonComponent } from './skeleton/skeleton.component';
 export { TrackMenuComponent } from './track-menu/track-menu.component';
 export { PlaylistPickerComponent } from './playlist-picker/playlist-picker.component';
 export { sourceMeta } from './source-badge';
+export { ArtistCardComponent } from './artist-card/artist-card.component';
+export { CollectionCardComponent } from './collection-card/collection-card.component';

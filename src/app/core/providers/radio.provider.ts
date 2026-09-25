@@ -119,8 +119,11 @@ export class RadioProvider implements MusicProvider {
       case 'classical':
         params.tag = 'classical,opera,symphony';
         break;
-      default: 
-        params.tag = region;
+      default:
+        // "country:NP" → stations from that country, "tag:news" → by tag
+        if (region.startsWith('country:')) params.countrycode = region.slice(8).toUpperCase();
+        else if (region.startsWith('tag:')) params.tag = region.slice(4);
+        else params.tag = region;
     }
 
     // Set a higher default limit for regional discovery

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
-import { environment } from '../environment';
+import { environment, hasSupabase } from '../environment';
 import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
@@ -14,7 +14,11 @@ export class AuthService {
   public initialized: Promise<boolean>;
 
   constructor() {
-    this.supabase = createClient(environment.supabase.url, environment.supabase.key);
+    // Without a configured project we still create a client so the admin pages
+    // load; sign-in just fails with a clear message.
+    this.supabase = hasSupabase()
+      ? createClient(environment.supabase.url, environment.supabase.key)
+      : createClient('https://not-configured.supabase.co', 'not-configured');
     
     // Check initial session and resolve the initialized promise
     this.initialized = this.supabase.auth.getSession().then(({ data: { session } }) => {
@@ -28,7 +32,12 @@ export class AuthService {
     });
   }
 
+  readonly configured = hasSupabase();
+
   async signIn(email: string, password: string) {
+    if (!this.configured) {
+      return { data: { user: null, session: null }, error: new Error('Uploads are off: add your Supabase URL and anon key in src/app/core/environment.ts') } as const;
+    }
     return this.supabase.auth.signInWithPassword({ email, password });
   }
 

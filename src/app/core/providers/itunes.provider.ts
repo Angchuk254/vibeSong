@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { map, catchError, timeout } from 'rxjs/operators';
-import { Track } from '../../models';
+import { Track, ArtistSummary } from '../../models';
 import { MusicProvider } from './music-provider.interface';
 
 /**
@@ -56,6 +56,30 @@ export class ItunesProvider implements MusicProvider {
     );
   }
 
+  /** Songs by an artist; the artist's own picture isn't in the API so we use their newest cover */
+  getArtist(id: string, limit = 50): Observable<{ artist: ArtistSummary | null; tracks: Track[] }> {
+    const qs = new URLSearchParams({ id, entity: 'song', limit: String(limit), country: 'IN' });
+    return this.http.get<{ results: any[] }>(`https://itunes.apple.com/lookup?${qs.toString()}`).pipe(
+      timeout(10000),
+      map((res) => {
+        const results = res?.results || [];
+        const info = results.find((r) => r.wrapperType === 'artist');
+        const tracks = results.filter((r) => r.kind === 'song' && r.previewUrl).map((r) => this.mapToTrack(r));
+        const artist: ArtistSummary | null = info
+          ? {
+              ref: `itunes:${info.artistId}`,
+              name: info.artistName,
+              image: tracks[0]?.image || '',
+              bio: info.primaryGenreName ? `${info.primaryGenreName} artist` : '',
+              trackCount: tracks.length,
+            }
+          : null;
+        return { artist, tracks };
+      }),
+      catchError(() => of({ artist: null, tracks: [] as Track[] }))
+    );
+  }
+
   private mapToTrack(r: any): Track {
     // Upgrade the 100px artwork to a sharper size
     const art = (r.artworkUrl100 || '').replace('100x100bb', '600x600bb');
@@ -76,6 +100,7 @@ export class ItunesProvider implements MusicProvider {
       genre: r.primaryGenreName,
       provider: this.id,
       isPreview: true,
+      artistRef: r.artistId ? `itunes:${r.artistId}` : undefined,
     };
   }
 }

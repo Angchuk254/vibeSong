@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { map, catchError, switchMap, shareReplay, timeout } from 'rxjs/operators';
-import { Track } from '../../models';
+import { Track, ArtistSummary, Collection } from '../../models';
 import { MusicProvider } from './music-provider.interface';
 
 /**
@@ -25,7 +25,10 @@ export class AudiusProvider implements MusicProvider {
   static readonly GENRES = [
     'Electronic', 'Hip-Hop/Rap', 'Pop', 'Lo-Fi', 'Ambient', 'Acoustic', 'Folk',
     'World', 'Jazz', 'Classical', 'R&B/Soul', 'Rock', 'Alternative', 'Devotional',
-    'Soundtrack', 'House', 'Downtempo', 'Latin', 'Reggae', 'Blues',
+    'Soundtrack', 'House', 'Downtempo', 'Latin', 'Reggae', 'Blues', 'Metal', 'Punk',
+    'Country', 'Funk', 'Techno', 'Trap', 'Deep House', 'Drum & Bass', 'Dubstep',
+    'Trance', 'Future Bass', 'Experimental', 'Dancehall', 'Disco', 'Kids',
+    'Podcasts', 'Spoken Word', 'Audiobooks', 'Comedy', 'Hyperpop', 'Vaporwave',
   ];
 
   getTrendingTracks(limit = 20, offset = 0): Observable<Track[]> {
@@ -50,25 +53,93 @@ export class AudiusProvider implements MusicProvider {
     return this.get('/tracks/trending/underground', { limit }, limit);
   }
 
-  private get(path: string, params: Record<string, string | number>, limit: number): Observable<Track[]> {
-    const qs = new URLSearchParams({ app_name: this.appName });
-    Object.entries(params).forEach(([k, v]) => qs.set(k, String(v)));
+  // ── Artists ──
 
-    const request = (host: string) =>
-      this.http.get<{ data: any[] }>(`${host}/v1${path}?${qs.toString()}`).pipe(timeout(10000));
+  searchArtists(query: string, limit = 10): Observable<ArtistSummary[]> {
+    if (!query.trim()) return of([]);
+    return this.raw('/users/search', { query, limit }).pipe(
+      map((users) => users.filter((u) => u.track_count > 0).slice(0, limit).map((u) => this.mapArtist(u)))
+    );
+  }
 
-    return request(this.gateway).pipe(
-      catchError(() => this.discoverHost().pipe(switchMap((host) => request(host)))),
-      map((res) =>
-        (res?.data || [])
-          .filter((t) => this.isPlayable(t))
+  getArtist(id: string): Observable<ArtistSummary | null> {
+    return this.rawOne(`/users/${encodeURIComponent(id)}`).pipe(map((u) => (u ? this.mapArtist(u) : null)));
+  }
+
+  getArtistTracks(id: string, limit = 50): Observable<Track[]> {
+    return this.get(`/users/${encodeURIComponent(id)}/tracks`, { limit, sort: 'plays' }, limit);
+  }
+
+  /** Artists behind this week's trending songs */
+  getTrendingArtists(limit = 12): Observable<ArtistSummary[]> {
+    return this.raw('/tracks/trending', { limit: 60, time: 'week' }).pipe(
+      map((tracks) => {
+        const seen = new Set<string>();
+        return tracks
+          .map((t) => t.user)
+          .filter((u) => u?.id && !seen.has(u.id) && seen.add(u.id))
           .slice(0, limit)
-          .map((t) => this.mapToTrack(t))
-      ),
+          .map((u) => this.mapArtist(u));
+      })
+    );
+  }
+
+  // ── Playlists & albums ──
+
+  getTrendingPlaylists(limit = 20): Observable<Collection[]> {
+    return this.raw('/playlists/trending', { limit, time: 'week' }).pipe(
+      map((pls) => pls.filter((p) => p.track_count >= 3).slice(0, limit).map((p) => this.mapCollection(p)))
+    );
+  }
+
+  searchPlaylists(query: string, limit = 10): Observable<Collection[]> {
+    if (!query.trim()) return of([]);
+    return this.raw('/playlists/search', { query, limit }).pipe(
+      map((pls) => pls.filter((p) => p.track_count >= 2).slice(0, limit).map((p) => this.mapCollection(p)))
+    );
+  }
+
+  getCollection(id: string): Observable<Collection | null> {
+    return this.rawOne(`/playlists/${encodeURIComponent(id)}`).pipe(map((p) => (p ? this.mapCollection(p) : null)));
+  }
+
+  getCollectionTracks(id: string, limit = 200): Observable<Track[]> {
+    return this.get(`/playlists/${encodeURIComponent(id)}/tracks`, { limit }, limit);
+  }
+
+  private get(path: string, params: Record<string, string | number>, limit: number): Observable<Track[]> {
+    return this.raw(path, params).pipe(
+      map((data) => data.filter((t) => this.isPlayable(t)).slice(0, limit).map((t) => this.mapToTrack(t)))
+    );
+  }
+
+  private rawOne(path: string): Observable<any | null> {
+    return this.request(path, {}).pipe(
+      map((res: any) => (Array.isArray(res?.data) ? res.data[0] : res?.data) || null),
+      catchError(() => of(null))
+    );
+  }
+
+  /** Returns the response's data array, or [] if every host failed */
+  private raw(path: string, params: Record<string, string | number>): Observable<any[]> {
+    return this.request(path, params).pipe(
+      map((res: any) => (Array.isArray(res?.data) ? res.data : [])),
       catchError((err) => {
         console.error('[AudiusProvider] Error:', err);
         return of([]);
       })
+    );
+  }
+
+  private request(path: string, params: Record<string, string | number>): Observable<unknown> {
+    const qs = new URLSearchParams({ app_name: this.appName });
+    Object.entries(params).forEach(([k, v]) => qs.set(k, String(v)));
+
+    const request = (host: string) =>
+      this.http.get(`${host}/v1${path}?${qs.toString()}`).pipe(timeout(10000));
+
+    return request(this.gateway).pipe(
+      catchError(() => this.discoverHost().pipe(switchMap((host) => request(host))))
     );
   }
 
@@ -120,6 +191,32 @@ export class AudiusProvider implements MusicProvider {
       mood: t.mood,
       playCount: t.play_count,
       provider: this.id,
+      artistRef: t.user?.id ? `audius:${t.user.id}` : undefined,
+    };
+  }
+
+  private mapArtist(u: any): ArtistSummary {
+    return {
+      ref: `audius:${u.id}`,
+      name: u.name || u.handle,
+      image: u.profile_picture?.['480x480'] || u.profile_picture?.['150x150'] || '',
+      cover: u.cover_photo?.['2000x'] || u.cover_photo?.['640x'] || '',
+      bio: u.bio || '',
+      followers: u.follower_count,
+      trackCount: u.track_count,
+      verified: !!u.is_verified,
+    };
+  }
+
+  private mapCollection(p: any): Collection {
+    return {
+      ref: `audius:${p.id}`,
+      name: p.playlist_name || 'Untitled',
+      owner: p.user?.name || '',
+      image: p.artwork?.['480x480'] || p.artwork?.['1000x1000'] || p.artwork?.['150x150'] || '',
+      description: p.description || '',
+      isAlbum: !!p.is_album,
+      trackCount: p.track_count,
     };
   }
 }

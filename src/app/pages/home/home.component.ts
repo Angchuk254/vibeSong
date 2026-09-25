@@ -4,10 +4,10 @@
 
 import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { TrackCardComponent, SkeletonComponent } from '../../shared';
-import { MusicApiService, StorageService, PlayerService } from '../../services';
-import { Track, MusicCategory } from '../../models';
+import { Router, RouterLink } from '@angular/router';
+import { TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent } from '../../shared';
+import { MusicApiService, StorageService, PlayerService, LibraryService } from '../../services';
+import { Track, MusicCategory, ArtistSummary, Collection } from '../../models';
 import { MUSIC_CATEGORIES } from '../../core/categories.data';
 import { Observable, Subject, of, takeUntil, finalize } from 'rxjs';
 
@@ -24,7 +24,7 @@ interface Row {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, TrackCardComponent, SkeletonComponent],
+  imports: [CommonModule, RouterLink, TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent],
   template: `
     <div class="home vo-fade-in">
       <!-- Header -->
@@ -49,11 +49,15 @@ interface Row {
               <span>{{ cat.name }}</span>
             </button>
           }
+          <button class="category-pill category-pill--more" (click)="router.navigate(['/search'])">
+            <i class="bi bi-grid-3x3-gap-fill"></i>
+            <span>All {{ totalCategories }}</span>
+          </button>
         </div>
       </section>
 
       <!-- Quick picks: liked + recent -->
-      @if (recentTracks().length > 0 || likedCount() > 0) {
+      @if (recentTracks().length > 0 || likedCount() > 0 || library.playlists().length > 0) {
         <section class="home__section">
           <div class="quick-grid">
             @if (likedCount() > 0) {
@@ -63,7 +67,15 @@ interface Row {
                 <i class="bi bi-play-circle-fill quick-tile__play"></i>
               </button>
             }
-            @for (track of recentTracks().slice(0, likedCount() > 0 ? 5 : 6); track track.id) {
+            @for (pl of library.playlists().slice(0, 3); track pl.id) {
+              <a class="quick-tile" [routerLink]="['/playlist', pl.id]">
+                @if (pl.image) { <img class="quick-tile__art" [src]="pl.image" alt="" loading="lazy" /> }
+                @else { <span class="quick-tile__art quick-tile__art--liked"><i class="bi bi-music-note-list"></i></span> }
+                <span class="quick-tile__name">{{ pl.name }}<small>{{ pl.tracks.length }} songs</small></span>
+                <i class="bi bi-play-circle-fill quick-tile__play"></i>
+              </a>
+            }
+            @for (track of recentTracks().slice(0, quickSlots()); track track.id) {
               <button class="quick-tile" (click)="player.playTrack(track, recentTracks())">
                 <img class="quick-tile__art" [src]="track.album_image || track.image || 'icons/icon-192x192.png'" alt="" loading="lazy" />
                 <span class="quick-tile__name">{{ track.name }}<small>{{ track.artist_name }}</small></span>
@@ -75,6 +87,24 @@ interface Row {
       }
 
       @for (row of rows(); track row.id) {
+        @if (row.id === 'bollywood') {
+          @if (playlists().length > 0) {
+            <section class="home__section">
+              <h3 class="vo-section-title"><span class="row-title"><i class="bi bi-collection-play-fill"></i><span>Popular Playlists<small>Curated by the community</small></span></span></h3>
+              <div class="vo-hscroll">
+                @for (c of playlists(); track c.ref) { <app-collection-card [collection]="c"></app-collection-card> }
+              </div>
+            </section>
+          }
+          @if (artists().length > 0) {
+            <section class="home__section">
+              <h3 class="vo-section-title"><span class="row-title"><i class="bi bi-person-hearts"></i><span>Popular Artists</span></span></h3>
+              <div class="vo-hscroll">
+                @for (a of artists(); track a.ref) { <app-artist-card [artist]="a"></app-artist-card> }
+              </div>
+            </section>
+          }
+        }
         @if (row.loading || row.tracks.length > 0) {
           <section class="home__section">
             <h3 class="vo-section-title">
@@ -109,6 +139,15 @@ interface Row {
             </div>
           </section>
         }
+      }
+
+      @if (library.followedArtists().length > 0) {
+        <section class="home__section">
+          <h3 class="vo-section-title"><span class="row-title"><i class="bi bi-person-check-fill"></i><span>Artists You Follow</span></span></h3>
+          <div class="vo-hscroll">
+            @for (a of library.followedArtists(); track a.ref) { <app-artist-card [artist]="a"></app-artist-card> }
+          </div>
+        </section>
       }
 
       @if (allEmpty()) {
@@ -192,6 +231,12 @@ interface Row {
       i {
         font-size: 1.1rem;
       }
+
+      &--more {
+        background: var(--vo-bg-card);
+        color: var(--vo-text-primary);
+        text-shadow: none;
+      }
     }
 
     /* Quick picks */
@@ -217,6 +262,7 @@ interface Row {
       border: none;
       border-radius: var(--vo-radius-sm);
       background: var(--vo-bg-card);
+      text-decoration: none;
       color: var(--vo-text-primary);
       text-align: left;
       overflow: hidden;
@@ -339,20 +385,33 @@ export class HomeComponent implements OnInit, OnDestroy {
   private musicApi = inject(MusicApiService);
   private storage = inject(StorageService);
   readonly player = inject(PlayerService);
-  private router = inject(Router);
+  readonly library = inject(LibraryService);
+  readonly router = inject(Router);
+  readonly totalCategories = MUSIC_CATEGORIES.length;
   private destroy$ = new Subject<void>();
 
-  categories = MUSIC_CATEGORIES;
+  private readonly featured = ['bollywood', 'punjabi', 'hindi', 'pop', 'hiphop', 'lofi', 'chill', 'workout', 'romance',
+    'ladakhi', 'tibet', 'nepal', 'kpop', 'electronic', 'rock', 'devotional', 'radio'];
+  categories = this.featured.map((id) => MUSIC_CATEGORIES.find((c) => c.id === id)!).filter(Boolean);
   recentTracks = signal<Track[]>([]);
   likedCount = signal(0);
   greeting = signal('Good evening');
   rows = signal<Row[]>([]);
+  playlists = signal<Collection[]>([]);
+  artists = signal<ArtistSummary[]>([]);
+
+  /** Recent songs fill whatever is left of the 6 quick tiles */
+  quickSlots(): number {
+    const used = (this.likedCount() > 0 ? 1 : 0) + Math.min(3, this.library.playlists().length);
+    return Math.max(0, 6 - used);
+  }
 
   ngOnInit(): void {
     this.updateGreeting();
     this.loadPersonal();
     this.rows.set(this.buildRows());
     this.loadRows();
+    this.loadDiscovery();
   }
 
   ngOnDestroy(): void {
@@ -370,6 +429,12 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.loadPersonal();
     this.rows.set(this.buildRows());
     this.loadRows();
+    this.loadDiscovery();
+  }
+
+  private loadDiscovery(): void {
+    this.musicApi.getTrendingPlaylists(16).pipe(takeUntil(this.destroy$)).subscribe((p) => this.playlists.set(p));
+    this.musicApi.getTrendingArtists(14).pipe(takeUntil(this.destroy$)).subscribe((a) => this.artists.set(a));
   }
 
   playLiked(): void {
@@ -403,11 +468,16 @@ export class HomeComponent implements OnInit, OnDestroy {
       moodRow,
       this.row('bollywood', 'Bollywood Hits', 'bi-film', () => this.musicApi.getPreviewTracks('bollywood hits'), '30s previews'),
       this.row('punjabi', 'Punjabi Beats', 'bi-music-player-fill', () => this.musicApi.getPreviewTracks('punjabi hits'), '30s previews'),
+      this.row('global', 'Global Top Hits', 'bi-globe2', () => this.musicApi.getPreviewTracks('top hits 2025', 15, 'US'), '30s previews'),
       this.row('hiphop', 'Hip-Hop', 'bi-mic-fill', () => this.musicApi.getGenreTracks('Hip-Hop/Rap')),
+      this.row('rnb', 'R&B & Soul', 'bi-heart-pulse-fill', () => this.musicApi.getGenreTracks('R&B/Soul')),
       this.row('electronic', 'Electronic', 'bi-lightning-charge-fill', () => this.musicApi.getGenreTracks('Electronic')),
       this.row('underground', 'Underground Gems', 'bi-gem', () => this.musicApi.getUndergroundTracks(), 'Rising artists'),
       this.row('zen', 'Meditation & Zen', 'bi-flower1', () => this.musicApi.getGenreTracks('Ambient')),
+      this.row('rock', 'Rock', 'bi-lightning-fill', () => this.musicApi.getGenreTracks('Rock')),
+      this.row('jazz', 'Jazz Lounge', 'bi-music-note-list', () => this.musicApi.getGenreTracks('Jazz')),
       this.row('world', 'World & Folk', 'bi-globe-asia-australia', () => this.musicApi.getGenreTracks('World')),
+      this.row('kpop', 'K-Pop', 'bi-stars', () => this.musicApi.getPreviewTracks('k-pop', 15, 'KR'), '30s previews'),
       this.row('devotional', 'Devotional', 'bi-brightness-high', () => this.musicApi.getGenreTracks('Devotional')),
       this.row('radio', 'Live Radio', 'bi-broadcast', () => this.musicApi.getRadioStations('india', 12), 'Stations checked for HTTPS streams'),
       this.row('archive', 'From the Archives', 'bi-bank2', () => this.musicApi.getArchiveTracks(10), 'Public-domain recordings'),

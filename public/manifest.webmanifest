@@ -1,8 +1,9 @@
 {
-  "name": "vibeOnly — Himalayan Music",
+  "name": "vibeOnly — Free Music, No Ads",
   "short_name": "vibeOnly",
-  "description": "Stream Ladakhi, Pahadi, Punjabi folk, meditation & Himalayan regional music. No ads. Pure vibes.",
-  "start_url": "/",
+  "description": "Free, ad-free music player: full songs, playlists, lyrics, radio and every genre. No login.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0a0a1a",

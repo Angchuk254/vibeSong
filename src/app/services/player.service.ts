@@ -203,6 +203,12 @@ export class PlayerService {
     }
   }
 
+  /** Jump to an exact time in seconds */
+  seekToTime(seconds: number): void {
+    const dur = this.duration();
+    if (dur > 0 && isFinite(dur)) this.audio.currentTime = Math.max(0, Math.min(dur - 0.5, seconds));
+  }
+
   /** Skip forward/back by seconds */
   seekBy(seconds: number): void {
     const dur = this.duration();

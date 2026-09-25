@@ -5,20 +5,33 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { TrackListItemComponent } from '../../shared';
+import { TrackListItemComponent, ArtistCardComponent } from '../../shared';
 import { StorageService, PlayerService, LibraryService } from '../../services';
 import { Track } from '../../models';
 
-type Tab = 'liked' | 'playlists' | 'recent' | 'stats';
+type Tab = 'liked' | 'playlists' | 'artists' | 'recent' | 'stats';
+type Sort = 'recent' | 'title' | 'artist';
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, TrackListItemComponent, RouterLink],
+  imports: [CommonModule, TrackListItemComponent, ArtistCardComponent, RouterLink],
   template: `
     <div class="library-page vo-fade-in">
       <header class="lib-header">
-        <h1 class="lib-title">Your Library</h1>
+        <div class="lib-top">
+          <h1 class="lib-title">Your Library</h1>
+          <div class="backup">
+            <button class="vo-btn vo-btn-ghost" (click)="library.exportLibrary()" title="Download a backup of your likes, playlists and artists">
+              <i class="bi bi-download"></i> <span class="vo-desktop-only">Export</span>
+            </button>
+            <label class="vo-btn vo-btn-ghost" title="Restore or merge a backup file">
+              <i class="bi bi-upload"></i> <span class="vo-desktop-only">Import</span>
+              <input type="file" accept="application/json,.json" hidden (change)="importFile($event)" />
+            </label>
+          </div>
+        </div>
+        @if (importMessage()) { <p class="import-msg">{{ importMessage() }}</p> }
 
         <div class="lib-tabs" role="tablist">
           @for (t of tabs; track t.id) {
@@ -36,20 +49,34 @@ type Tab = 'liked' | 'playlists' | 'recent' | 'stats';
           @if (favorites().length > 0) {
             <div class="action-bar">
               <div class="action-bar__buttons">
-                <button class="vo-btn vo-btn-primary" (click)="player.playAll(favorites())">
+                <button class="vo-btn vo-btn-primary" (click)="player.playAll(likedView())">
                   <i class="bi bi-play-fill"></i> Play
                 </button>
-                <button class="vo-btn vo-btn-ghost" (click)="player.playAll(favorites(), true)">
+                <button class="vo-btn vo-btn-ghost" (click)="player.playAll(likedView(), true)">
                   <i class="bi bi-shuffle"></i> Shuffle
                 </button>
               </div>
               <span class="track-count">{{ favorites().length }} songs</span>
             </div>
+            <div class="list-tools">
+              <div class="filter-box">
+                <i class="bi bi-search"></i>
+                <input #likedFilter type="text" placeholder="Find in Liked Songs" [value]="query()" (input)="query.set(likedFilter.value)" aria-label="Filter liked songs" />
+              </div>
+              <select [value]="sort()" (change)="setSort($event)" aria-label="Sort">
+                <option value="recent">Recently added</option>
+                <option value="title">Title</option>
+                <option value="artist">Artist</option>
+              </select>
+            </div>
           }
 
           <div class="track-list">
-            @for (track of favorites(); track track.id; let i = $index) {
-              <app-track-list-item [track]="track" [index]="i + 1" [trackList]="favorites()"></app-track-list-item>
+            @for (track of likedView(); track track.id; let i = $index) {
+              <app-track-list-item [track]="track" [index]="i + 1" [trackList]="likedView()"></app-track-list-item>
+            }
+            @if (favorites().length > 0 && likedView().length === 0) {
+              <p class="hint">No liked songs match "{{ query() }}".</p>
             }
             @if (favorites().length === 0) {
               <div class="empty-state">
@@ -89,6 +116,22 @@ type Tab = 'liked' | 'playlists' | 'recent' | 'stats';
           </div>
           @if (library.playlists().length === 0) {
             <p class="hint">Create a playlist above, or use the <i class="bi bi-three-dots"></i> menu on any song → "Add to playlist".</p>
+          }
+        }
+
+        <!-- Artists -->
+        @if (activeTab() === 'artists') {
+          <div class="artist-grid">
+            @for (a of library.followedArtists(); track a.ref) {
+              <app-artist-card [artist]="a"></app-artist-card>
+            }
+          </div>
+          @if (library.followedArtists().length === 0) {
+            <div class="empty-state">
+              <i class="bi bi-person-plus"></i>
+              <p>No artists yet</p>
+              <span>Tap an artist's name, then Follow</span>
+            </div>
           }
         }
 
@@ -170,10 +213,83 @@ type Tab = 'liked' | 'playlists' | 'recent' | 'stats';
       padding-bottom: 120px;
     }
 
+    .lib-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
     .lib-title {
       font-size: 2rem;
       font-weight: 800;
-      margin: 0 0 20px;
+      margin: 0;
+    }
+
+    .backup {
+      display: flex;
+      gap: 8px;
+
+      .vo-btn { padding: 8px 14px; }
+    }
+
+    .import-msg {
+      margin: -8px 0 16px;
+      color: var(--vo-secondary);
+      font-size: 0.88rem;
+    }
+
+    .list-tools {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+
+      select {
+        height: 38px;
+        border-radius: var(--vo-radius-xl);
+        border: 1px solid var(--vo-border-light);
+        background: var(--vo-bg-input);
+        color: var(--vo-text-primary);
+        padding: 0 12px;
+        font-size: 0.85rem;
+
+        option { background: var(--vo-bg-secondary); }
+      }
+    }
+
+    .filter-box {
+      position: relative;
+      flex: 1;
+      max-width: 320px;
+
+      i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--vo-text-muted);
+        font-size: 0.85rem;
+      }
+
+      input {
+        width: 100%;
+        height: 38px;
+        padding: 0 12px 0 34px;
+        border-radius: var(--vo-radius-xl);
+        border: 1px solid var(--vo-border-light);
+        background: var(--vo-bg-input);
+        color: var(--vo-text-primary);
+        outline: none;
+
+        &:focus { border-color: var(--vo-accent); }
+      }
+    }
+
+    .artist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
     }
 
     .lib-tabs {
@@ -438,6 +554,7 @@ export class LibraryComponent implements OnInit {
   readonly tabs: { id: Tab; label: string }[] = [
     { id: 'liked', label: 'Liked Songs' },
     { id: 'playlists', label: 'Playlists' },
+    { id: 'artists', label: 'Artists' },
     { id: 'recent', label: 'Recent' },
     { id: 'stats', label: 'Your Stats' },
   ];
@@ -448,12 +565,47 @@ export class LibraryComponent implements OnInit {
   topArtists = signal<{ name: string; image: string; plays: number }[]>([]);
   totalPlays = signal(0);
   newName = signal('');
+  query = signal('');
+  sort = signal<Sort>('recent');
+  importMessage = signal('');
 
   /** Re-reads storage whenever a song is liked/unliked anywhere in the app */
   readonly favorites = computed(() => {
     this.player.favoritesVersion();
     return this.storage.getFavorites();
   });
+
+  /** Liked songs after the filter box and sort menu */
+  readonly likedView = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    let list = this.favorites();
+    if (q) list = list.filter((t) => `${t.name} ${t.artist_name} ${t.genre || ''}`.toLowerCase().includes(q));
+    if (this.sort() === 'title') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    if (this.sort() === 'artist') list = [...list].sort((a, b) => a.artist_name.localeCompare(b.artist_name));
+    return list;
+  });
+
+  setSort(e: Event): void {
+    this.sort.set((e.target as HTMLSelectElement).value as Sort);
+  }
+
+  importFile(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    file.text().then((text) => {
+      try {
+        const r = this.library.importLibrary(text);
+        this.player.favoritesVersion.update((v) => v + 1);
+        this.loadData();
+        this.importMessage.set(`Imported ${r.songs} liked songs, ${r.playlists} playlists and ${r.artists} artists.`);
+      } catch {
+        this.importMessage.set("That file isn't a vibeOnly backup.");
+      }
+      input.value = '';
+      setTimeout(() => this.importMessage.set(''), 6000);
+    });
+  }
 
   ngOnInit(): void {
     const tab = this.route.snapshot.queryParamMap.get('tab') as Tab | null;

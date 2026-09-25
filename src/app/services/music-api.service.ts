@@ -5,7 +5,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, of, timeout } from 'rxjs';
 import { map, catchError, shareReplay, defaultIfEmpty } from 'rxjs/operators';
-import { Track, MusicCategory } from '../models';
+import { Track, MusicCategory, ArtistSummary, Collection } from '../models';
 import { RadioProvider } from '../core/providers/radio.provider';
 import { SupabaseProvider } from '../core/providers/supabase.provider';
 import { ArchiveProvider } from '../core/providers/archive.provider';
@@ -26,7 +26,7 @@ export class MusicApiService {
   private itunes = inject(ItunesProvider);
 
   private trendingCache$: Observable<Track[]> | null = null;
-  private readonly rowCache = new Map<string, Observable<Track[]>>();
+  private readonly rowCache = new Map<string, Observable<unknown>>();
 
   getTrendingTracks(limit = 20): Observable<Track[]> {
     if (!this.trendingCache$) {
@@ -41,6 +41,48 @@ export class MusicApiService {
     return this.safe(this.supabase.getTrendingTracks(limit));
   }
 
+  // ── Artists ──
+
+  getTrendingArtists(limit = 12): Observable<ArtistSummary[]> {
+    return this.cachedAny(`artists:${limit}`, () => this.audius.getTrendingArtists(limit).pipe(catchError(() => of([]))));
+  }
+
+  searchArtists(query: string, limit = 8): Observable<ArtistSummary[]> {
+    return this.audius.searchArtists(query, limit).pipe(timeout(10000), catchError(() => of([])));
+  }
+
+  /** Artist page data for a ref like "audius:abc" or "itunes:123" */
+  getArtistPage(ref: string): Observable<{ artist: ArtistSummary | null; tracks: Track[] }> {
+    const [source, id] = this.splitRef(ref);
+    if (source === 'itunes') return this.itunes.getArtist(id);
+    if (source === 'audius') {
+      return forkJoin([
+        this.audius.getArtist(id).pipe(catchError(() => of(null))),
+        this.safe(this.audius.getArtistTracks(id, 50)),
+      ]).pipe(map(([artist, tracks]) => ({ artist, tracks })));
+    }
+    return of({ artist: null, tracks: [] });
+  }
+
+  // ── Public playlists & albums ──
+
+  getTrendingPlaylists(limit = 16): Observable<Collection[]> {
+    return this.cachedAny(`playlists:${limit}`, () => this.audius.getTrendingPlaylists(limit).pipe(catchError(() => of([]))));
+  }
+
+  searchPlaylists(query: string, limit = 8): Observable<Collection[]> {
+    return this.audius.searchPlaylists(query, limit).pipe(timeout(10000), catchError(() => of([])));
+  }
+
+  getCollection(ref: string): Observable<Collection | null> {
+    const [source, id] = this.splitRef(ref);
+    if (source !== 'audius') return of(null);
+    return forkJoin([
+      this.audius.getCollection(id).pipe(catchError(() => of(null))),
+      this.safe(this.audius.getCollectionTracks(id)),
+    ]).pipe(map(([c, tracks]) => (c ? { ...c, tracks } : tracks.length ? { ref, name: 'Playlist', owner: '', image: tracks[0].image, tracks } : null)));
+  }
+
   getGenreTracks(genre: string, limit = 15): Observable<Track[]> {
     return this.cached(`genre:${genre}:${limit}`, () => this.safe(this.audius.getTrendingByGenre(genre, limit)));
   }
@@ -49,8 +91,8 @@ export class MusicApiService {
     return this.cached(`underground:${limit}`, () => this.safe(this.audius.getFeaturedTracks(limit)));
   }
 
-  getPreviewTracks(term: string, limit = 15): Observable<Track[]> {
-    return this.cached(`itunes:${term}:${limit}`, () => this.safe(this.itunes.search(term, limit)));
+  getPreviewTracks(term: string, limit = 15, country = 'IN'): Observable<Track[]> {
+    return this.cached(`itunes:${term}:${limit}:${country}`, () => this.safe(this.itunes.search(term, limit, country)));
   }
 
   getArchiveTracks(limit = 10): Observable<Track[]> {
@@ -75,7 +117,7 @@ export class MusicApiService {
     if (s.audiusGenre) sources.push(this.audius.getTrendingByGenre(s.audiusGenre, limit));
     (s.audius || []).forEach((q) => sources.push(this.audius.searchTracks(q, Math.ceil(limit / 2))));
     if (s.archive) sources.push(this.archive.searchTracks(s.archive, 8));
-    if (s.itunes) sources.push(this.itunes.search(s.itunes, limit));
+    if (s.itunes) sources.push(this.itunes.search(s.itunes, limit, s.itunesCountry || 'IN'));
     if (s.radio) sources.push(this.radio.getRegionalTracks(s.radio, limit));
     return this.merge(sources);
   }
@@ -164,12 +206,21 @@ export class MusicApiService {
   }
 
   private cached(key: string, factory: () => Observable<Track[]>): Observable<Track[]> {
-    let obs = this.rowCache.get(key);
+    return this.cachedAny(key, factory);
+  }
+
+  private cachedAny<T>(key: string, factory: () => Observable<T>): Observable<T> {
+    let obs = this.rowCache.get(key) as Observable<T> | undefined;
     if (!obs) {
       obs = factory().pipe(shareReplay(1));
-      this.rowCache.set(key, obs);
+      this.rowCache.set(key, obs as Observable<unknown>);
     }
     return obs;
+  }
+
+  private splitRef(ref: string): [string, string] {
+    const i = ref.indexOf(':');
+    return i > 0 ? [ref.slice(0, i), ref.slice(i + 1)] : ['', ref];
   }
 
   private dedupe(tracks: Track[]): Track[] {

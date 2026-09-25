@@ -42,14 +42,22 @@ import { Track } from '../../models';
           <button class="vo-btn vo-btn-ghost" (click)="player.playAll(pl.tracks, true)" [disabled]="!pl.tracks.length">
             <i class="bi bi-shuffle"></i> Shuffle
           </button>
-          <button class="vo-btn vo-btn-ghost" (click)="startEdit(pl.name)"><i class="bi bi-pencil"></i></button>
+          <button class="vo-btn vo-btn-ghost" (click)="player.addToQueue(pl.tracks)" [disabled]="!pl.tracks.length" title="Add all to queue"><i class="bi bi-list-ul"></i></button>
+          <button class="vo-btn vo-btn-ghost" [class.on]="reorder()" (click)="reorder.set(!reorder())" [disabled]="pl.tracks.length < 2" title="Reorder songs"><i class="bi bi-arrow-down-up"></i></button>
+          <button class="vo-btn vo-btn-ghost" (click)="startEdit(pl.name)" title="Rename"><i class="bi bi-pencil"></i></button>
           <button class="vo-btn vo-btn-ghost danger" (click)="remove()"><i class="bi bi-trash3"></i></button>
         </div>
 
         <div class="track-list">
-          @for (track of pl.tracks; track track.id; let i = $index) {
-            <app-track-list-item [track]="track" [index]="i + 1" [trackList]="pl.tracks"
-                                 [removable]="true" (remove)="library.removeTrack(pl.id, $event.id)"></app-track-list-item>
+          @for (track of pl.tracks; track track.id; let i = $index; let last = $last) {
+            <div class="pl-row">
+              <app-track-list-item class="pl-row__item" [track]="track" [index]="i + 1" [trackList]="pl.tracks"
+                                   [removable]="true" (remove)="library.removeTrack(pl.id, $event.id)"></app-track-list-item>
+              @if (reorder()) {
+                <button class="move" (click)="library.moveTrack(pl.id, i, i - 1)" [disabled]="i === 0" aria-label="Move up"><i class="bi bi-chevron-up"></i></button>
+                <button class="move" (click)="library.moveTrack(pl.id, i, i + 1)" [disabled]="last" aria-label="Move down"><i class="bi bi-chevron-down"></i></button>
+              }
+            </div>
           } @empty {
             <p class="hint">This playlist is empty. Add songs from the suggestions below, or use the <i class="bi bi-three-dots"></i> menu on any song.</p>
           }
@@ -108,6 +116,11 @@ import { Track } from '../../models';
       button:disabled { opacity: 0.5; cursor: default; }
       .danger { color: #ff6b6b; } }
     .track-list { display: flex; flex-direction: column; gap: 8px; }
+    .pl-row { display: flex; align-items: center; gap: 4px; }
+    .pl-row__item { flex: 1; min-width: 0; }
+    .move { background: var(--vo-bg-input); border: none; color: var(--vo-text-secondary); width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+      &:disabled { opacity: 0.3; cursor: default; } }
+    .on { border-color: var(--vo-accent); color: var(--vo-accent-light); }
     .hint { color: var(--vo-text-muted); font-size: 0.9rem; a { color: var(--vo-accent-light); cursor: pointer; } }
     .refresh { padding: 6px 14px; font-size: 0.8rem; }
     .suggest-list { display: flex; flex-direction: column; gap: 4px; }
@@ -136,6 +149,7 @@ export class PlaylistComponent implements OnInit {
   );
 
   readonly editing = signal(false);
+  readonly reorder = signal(false);
   readonly draft = signal('');
   readonly suggestions = signal<Track[]>([]);
   readonly loadingSuggestions = signal(false);
