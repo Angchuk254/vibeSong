@@ -109,14 +109,19 @@ export interface CategorySources {
   audiusGenre?: string;
   /** Audius search queries (full-length tracks) */
   audius?: string[];
-  /** iTunes search term (30s previews of mainstream songs) */
-  itunes?: string;
+  /** iTunes search term(s) (30s previews of mainstream songs) */
+  itunes?: string | string[];
   /** iTunes storefront, e.g. 'KR' for K-pop (default 'IN') */
   itunesCountry?: string;
   /** Radio Browser tag/region (live streams) */
   radio?: string;
   /** Internet Archive search query (full-length, public domain) */
   archive?: string;
+  /**
+   * Keywords a full-length (Audius) result must mention in its title, artist,
+   * tags or genre. Keeps niche categories from filling up with loose matches.
+   */
+  match?: string[];
 }
 
 /** Player state */

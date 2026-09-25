@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, forkJoin } from 'rxjs';
 import { map, catchError, switchMap, timeout } from 'rxjs/operators';
 import { Track } from '../../models';
 import { MusicProvider } from './music-provider.interface';
@@ -25,7 +25,7 @@ export class RadioProvider implements MusicProvider {
 
   getTracksByTag(tag: string, limit = 10): Observable<Track[]> {
     const regionalTags = [
-      'ladakhi', 'pahadi', 'uttarakhand', 'himachali', 'bollywood', 'punjabi', 'hindi', 'nepal', 'india', 'tibet', 'pakistan',
+      'ladakhi', 'spiti', 'pahadi', 'uttarakhand', 'himachali', 'bollywood', 'punjabi', 'hindi', 'nepal', 'india', 'tibet', 'pakistan',
       'lofi', 'jazz', 'zen', 'chillout', '80s', 'rock', 'classical', 'electronic'
     ];
     if (regionalTags.includes(tag.toLowerCase())) {
@@ -57,79 +57,48 @@ export class RadioProvider implements MusicProvider {
   }
 
   getRegionalTracks(region: string, limit = 10): Observable<Track[]> {
-    const params: any = { limit: limit.toString(), order: 'clickcount' };
-    
-    // Use broader tags or name search for niche regions
-    switch(region.toLowerCase()) {
-      case 'pakistan': 
-        params.country = 'Pakistan'; 
-        break;
-      case 'india': 
-        params.countrycode = 'IN';
-        break;
-      case 'tibet': 
-        params.tag = 'tibetan,buddhist,mantra';
-        break;
-      case 'nepal': 
-        params.country = 'Nepal'; 
-        break;
-      case 'uttarakhand':
-        params.tag = 'uttarakhand,pahadi,hindi';
-        break;
-      case 'himachali':
-        params.tag = 'himachal,pahadi,hindi';
-        break;
-      case 'ladakhi':
-        params.tag = 'ladakh,tibetan,buddhist';
-        params.name = 'Ladakh'; // Specific name match often works better for Ladakh
-        break;
-      case 'pahadi':
-        params.tag = 'pahadi,dogri,himachal,uttarakhand';
-        break;
-      case 'bollywood':
-        params.tag = 'bollywood,romantic,hindi';
-        params.name = 'mirchi'; 
-        break;
-      case 'punjabi':
-        params.language = 'punjabi';
-        params.tag = 'punjabi,desi,bhangra';
-        break;
-      case 'hindi':
-        params.language = 'hindi';
-        params.tag = 'bollywood,classic,oldies';
-        break;
-      case 'lofi':
-        params.tag = 'lofi,chill,study,relax';
-        break;
-      case 'jazz':
-        params.tag = 'jazz,smooth,blues';
-        break;
-      case 'zen':
-        params.tag = 'meditation,zen,yoga,ambient';
-        break;
-      case '80s':
-        params.tag = '80s,retro,classic rock';
-        break;
-      case 'rock':
-        params.tag = 'rock,hard rock,classic rock';
-        break;
-      case 'electronic':
-        params.tag = 'electronic,house,techno,dance';
-        break;
-      case 'classical':
-        params.tag = 'classical,opera,symphony';
-        break;
-      default:
-        // "country:NP" → stations from that country, "tag:news" → by tag
-        if (region.startsWith('country:')) params.countrycode = region.slice(8).toUpperCase();
-        else if (region.startsWith('tag:')) params.tag = region.slice(4);
-        else params.tag = region;
+    // Each entry is a separate search; results are merged. Radio Browser's
+    // `tag` matches a single tag, so "a,b,c" has to be split into queries.
+    const q = (p: Record<string, string>) => p;
+    const tags = (...t: string[]) => t.map((tag) => q({ tag }));
+    const plans: Record<string, Record<string, string>[]> = {
+      pakistan: [q({ countrycode: 'PK' })],
+      india: [q({ countrycode: 'IN' })],
+      nepal: [q({ countrycode: 'NP' })],
+      tibet: [...tags('tibetan', 'buddhist', 'mantra'), q({ name: 'tibet' })],
+      uttarakhand: [...tags('uttarakhand', 'garhwali', 'pahadi'), q({ name: 'uttarakhand' })],
+      himachali: [...tags('himachal', 'pahadi'), q({ name: 'himachal' }), q({ name: 'shimla' })],
+      ladakhi: [q({ name: 'leh' }), q({ name: 'ladakh' }), q({ name: 'kargil' }), ...tags('ladakh', 'ladakhi')],
+      spiti: [q({ name: 'spiti' }), q({ name: 'kinnaur' }), q({ name: 'lahaul' }), ...tags('himachal')],
+      pahadi: tags('pahadi', 'dogri', 'himachal', 'uttarakhand'),
+      bollywood: [...tags('bollywood', 'hindi'), q({ name: 'mirchi' })],
+      punjabi: [q({ language: 'punjabi' }), ...tags('punjabi', 'bhangra')],
+      hindi: [q({ language: 'hindi' }), ...tags('bollywood', 'hindi')],
+      lofi: tags('lofi', 'chill', 'study'),
+      jazz: tags('jazz', 'smooth jazz'),
+      zen: tags('meditation', 'zen', 'ambient'),
+      '80s': tags('80s', 'retro'),
+      rock: tags('rock', 'classic rock'),
+      electronic: tags('electronic', 'house', 'techno'),
+      classical: tags('classical', 'opera'),
+    };
+
+    let plan = plans[region.toLowerCase()];
+    if (!plan) {
+      // "country:NP" → that country, "tag:news" → by tag, "name:leh" → by station name
+      if (region.startsWith('country:')) plan = [q({ countrycode: region.slice(8).toUpperCase() })];
+      else if (region.startsWith('tag:')) plan = [q({ tag: region.slice(4) })];
+      else if (region.startsWith('name:')) plan = [q({ name: region.slice(5) })];
+      else plan = [q({ tag: region })];
     }
 
-    // Set a higher default limit for regional discovery
-    params.limit = (parseInt(params.limit) || 20).toString();
-
-    return this.fetchStations(params);
+    const per = String(Math.max(5, Math.ceil(limit / plan.length) + 3));
+    return forkJoin(plan.map((p) => this.fetchStations({ ...p, limit: per }))).pipe(
+      map((lists) => {
+        const seen = new Set<string>();
+        return lists.flat().filter((t) => !seen.has(t.id) && seen.add(t.id)).slice(0, limit);
+      })
+    );
   }
 
   private fetchStations(params: any): Observable<Track[]> {

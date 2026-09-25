@@ -11,6 +11,7 @@ import { SupabaseProvider } from '../core/providers/supabase.provider';
 import { ArchiveProvider } from '../core/providers/archive.provider';
 import { AudiusProvider } from '../core/providers/audius.provider';
 import { ItunesProvider } from '../core/providers/itunes.provider';
+import { MUSIC_CATEGORIES } from '../core/categories.data';
 
 /**
  * Aggregates the music sources. Full-length songs (your Supabase uploads, Audius,
@@ -83,6 +84,24 @@ export class MusicApiService {
     ]).pipe(map(([c, tracks]) => (c ? { ...c, tracks } : tracks.length ? { ref, name: 'Playlist', owner: '', image: tracks[0].image, tracks } : null)));
   }
 
+  /** Ladakhi, Spiti/Kinnaur and Tibetan songs mixed together */
+  getHimalayanMix(limit = 24): Observable<Track[]> {
+    return this.cachedAny(`himalayan:${limit}`, () => {
+      const pick = (id: string) => MUSIC_CATEGORIES.find((c) => c.id === id);
+      const cats = ['ladakhi', 'spiti', 'tibet'].map(pick).filter((c): c is MusicCategory => !!c);
+      return forkJoin(cats.map((c) => this.getCategoryTracks({ ...c, sources: { ...c.sources, radio: undefined } }, 15))).pipe(
+        // Interleave so one region doesn't crowd out the others
+        map((lists) => {
+          const out: Track[] = [];
+          for (let i = 0; out.length < limit && lists.some((l) => i < l.length); i++) {
+            lists.forEach((l) => l[i] && out.push(l[i]));
+          }
+          return this.rank(this.dedupe(out)).slice(0, limit);
+        })
+      );
+    });
+  }
+
   getGenreTracks(genre: string, limit = 15): Observable<Track[]> {
     return this.cached(`genre:${genre}:${limit}`, () => this.safe(this.audius.getTrendingByGenre(genre, limit)));
   }
@@ -113,11 +132,21 @@ export class MusicApiService {
     const s = cat.sources;
     if (!s) return this.getTracksByTag(cat.tag, limit);
 
+    const matches = (t: Track) => {
+      if (!s.match?.length) return true;
+      const text = `${t.name} ${t.artist_name} ${t.tags || ''} ${t.genre || ''} ${t.album_name}`.toLowerCase();
+      return s.match.some((k) => text.includes(k.toLowerCase()));
+    };
+
     const sources: Observable<Track[]>[] = [this.supabase.getTracksByTag(s.uploads || cat.name, limit)];
     if (s.audiusGenre) sources.push(this.audius.getTrendingByGenre(s.audiusGenre, limit));
-    (s.audius || []).forEach((q) => sources.push(this.audius.searchTracks(q, Math.ceil(limit / 2))));
-    if (s.archive) sources.push(this.archive.searchTracks(s.archive, 8));
-    if (s.itunes) sources.push(this.itunes.search(s.itunes, limit, s.itunesCountry || 'IN'));
+    (s.audius || []).forEach((q) =>
+      sources.push(this.audius.searchTracks(q, Math.ceil(limit / 2)).pipe(map((ts) => ts.filter(matches))))
+    );
+    if (s.archive) sources.push(this.archive.searchTracks(s.archive, 10));
+    const terms = Array.isArray(s.itunes) ? s.itunes : s.itunes ? [s.itunes] : [];
+    const perTerm = terms.length > 1 ? Math.ceil(limit / terms.length) + 5 : limit;
+    terms.forEach((term) => sources.push(this.itunes.search(term, perTerm, s.itunesCountry || 'IN')));
     if (s.radio) sources.push(this.radio.getRegionalTracks(s.radio, limit));
     return this.merge(sources);
   }

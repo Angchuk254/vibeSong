@@ -391,7 +391,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   private readonly featured = ['bollywood', 'punjabi', 'hindi', 'pop', 'hiphop', 'lofi', 'chill', 'workout', 'romance',
-    'ladakhi', 'tibet', 'nepal', 'kpop', 'electronic', 'rock', 'devotional', 'radio'];
+    'ladakhi', 'spiti', 'tibet', 'nepal', 'kpop', 'electronic', 'rock', 'devotional', 'radio'];
   categories = this.featured.map((id) => MUSIC_CATEGORIES.find((c) => c.id === id)!).filter(Boolean);
   recentTracks = signal<Track[]>([]);
   likedCount = signal(0);
@@ -464,6 +464,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         'Songs you keep coming back to'));
     }
     rows.push(
+      this.row('himalayan', 'Himalayan Corner', 'bi-snow2', () => this.musicApi.getHimalayanMix(24), 'Ladakhi, Spiti & Kinnaur, Tibetan'),
       this.row('trending', 'Trending This Week', 'bi-fire', () => this.musicApi.getTrendingTracks(20), 'Full-length songs'),
       moodRow,
       this.row('bollywood', 'Bollywood Hits', 'bi-film', () => this.musicApi.getPreviewTracks('bollywood hits'), '30s previews'),

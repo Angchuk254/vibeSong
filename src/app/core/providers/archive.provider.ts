@@ -35,8 +35,10 @@ export class ArchiveProvider implements MusicProvider {
     // Expand query for better Himalayan coverage
     let expandedQuery = query;
     const qLower = query.toLowerCase();
-    if (qLower.includes('ladakhi')) expandedQuery = 'ladakhi OR "ladakh music" OR "tibetan folk"';
-    else if (qLower.includes('pahadi')) expandedQuery = 'pahadi OR "himachal folk" OR "kumaoni" OR "garhwali"';
+    // Single-word regional searches get widened; explicit OR queries are left alone
+    if (qLower === 'ladakhi') expandedQuery = 'ladakhi OR ladakh OR zanskar OR "leh ladakh"';
+    else if (qLower === 'spiti') expandedQuery = 'spiti OR kinnauri OR kinnaur OR lahaul OR lahauli';
+    else if (qLower === 'pahadi') expandedQuery = 'pahadi OR "himachal folk" OR "kumaoni" OR "garhwali"';
     
     const iaQuery = `(${expandedQuery}) AND mediatype:audio`;
     // Sort by downloads desc to get the most popular first
