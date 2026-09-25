@@ -28,6 +28,11 @@ interface Row {
   imports: [CommonModule, RouterLink, TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent],
   template: `
     <div class="home vo-fade-in">
+      <!-- Brand (phones: the sidebar with the logo is hidden) -->
+      <div class="home__brand" aria-hidden="true">
+        <img src="icons/icon-96x96.png" alt="" width="28" height="28" />
+        <span>Yak<b>Beats</b></span>
+      </div>
       <!-- Header -->
       <header class="home__header">
         <div class="home__intro">
@@ -189,6 +194,22 @@ interface Row {
       flex-direction: column;
       gap: 32px;
       padding-bottom: 120px;
+    }
+
+    .home__brand {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: -16px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--vo-text-primary);
+      img { width: 28px; height: 28px; border-radius: 8px; }
+      b { color: var(--vo-accent-light); font-weight: 800; }
+    }
+    @media (max-width: 768px) {
+      .home__brand { display: flex; }
     }
 
     .home__header {

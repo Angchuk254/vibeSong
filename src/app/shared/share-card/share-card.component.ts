@@ -6,6 +6,7 @@
 
 import { Component, OnInit, signal } from '@angular/core';
 import { notify } from '../../services/storage.service';
+import { environment } from '../../core/environment';
 
 @Component({
   selector: 'app-share-card',
@@ -106,8 +107,8 @@ import { notify } from '../../services/storage.service';
   `],
 })
 export class ShareCardComponent implements OnInit {
-  /** The app's public link, e.g. https://angchuk254.github.io/vibeSong/ */
-  readonly url = document.baseURI;
+  /** Always the official address, whichever copy of the app this is opened from */
+  readonly url = environment.appUrl;
   readonly displayUrl = this.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
   readonly canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 

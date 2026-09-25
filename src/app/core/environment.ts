@@ -8,6 +8,8 @@
 // protects your data.
 
 export const environment = {
+  /** The app's official public address (used by the QR code, share and link previews) */
+  appUrl: 'https://yakbeats.onrender.com/',
   supabase: {
     url: '',
     key: '',
