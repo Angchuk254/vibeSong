@@ -119,8 +119,8 @@ export interface CategorySources {
   radio?: string;
   /** Internet Archive search query (full-length, public domain) */
   archive?: string;
-  /** YouTube search used when a YouTube key is set (languages default to "<name> songs") */
-  youtube?: string;
+  /** YouTube search(es) used when a YouTube key is set (languages default to "<name> songs") */
+  youtube?: string | string[];
   /**
    * Keywords a full-length (Audius) result must mention in its title, artist,
    * tags or genre. Keeps niche categories from filling up with loose matches.

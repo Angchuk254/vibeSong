@@ -4,7 +4,7 @@
 
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, forkJoin, from, of, timeout } from 'rxjs';
-import { map, catchError, shareReplay, defaultIfEmpty } from 'rxjs/operators';
+import { map, catchError, shareReplay, defaultIfEmpty, tap } from 'rxjs/operators';
 import { Track, MusicCategory, ArtistSummary, Collection } from '../models';
 import { RadioProvider } from '../core/providers/radio.provider';
 import { SupabaseProvider } from '../core/providers/supabase.provider';
@@ -104,12 +104,26 @@ export class MusicApiService {
     ]).pipe(map(([c, tracks]) => (c ? { ...c, tracks } : tracks.length ? { ref, name: 'Playlist', owner: '', image: tracks[0].image, tracks } : null)));
   }
 
-  /** Ladakhi, Spiti/Kinnaur and Tibetan songs mixed together */
+  /** Ladakhi, Spiti/Kinnaur, Himachali, Uttarakhand and Tibetan songs mixed together */
   getHimalayanMix(limit = 24): Observable<Track[]> {
     return this.cachedAny(`himalayan:${limit}`, () => {
       const pick = (id: string) => MUSIC_CATEGORIES.find((c) => c.id === id);
-      const cats = ['ladakhi', 'spiti', 'tibet'].map(pick).filter((c): c is MusicCategory => !!c);
-      return forkJoin(cats.map((c) => this.getCategoryTracks({ ...c, sources: { ...c.sources, radio: undefined } }, 15))).pipe(
+      const cats = ['ladakhi', 'spiti', 'himachali', 'uttarakhand', 'tibet'].map(pick).filter((c): c is MusicCategory => !!c);
+      // A light version of each page: iTunes allows only ~20 searches a minute
+      const light = (c: MusicCategory): MusicCategory => {
+        const it = c.sources?.itunes;
+        return {
+          ...c,
+          sources: {
+            ...c.sources,
+            radio: undefined,
+            youtube: Array.isArray(c.sources?.youtube) ? c.sources!.youtube[0] : c.sources?.youtube,
+            itunes: Array.isArray(it) ? it.slice(0, 2) : it,
+            audius: c.sources?.audius?.slice(0, 3),
+          },
+        };
+      };
+      return forkJoin(cats.map((c) => this.getCategoryTracks(light(c), 12))).pipe(
         // Interleave so one region doesn't crowd out the others
         map((lists) => {
           const out: Track[] = [];
@@ -159,13 +173,14 @@ export class MusicApiService {
       return s.match.some((k) => text.includes(k.toLowerCase()));
     };
 
-    const sources: Observable<Track[]>[] = [
-      from(this.device.ready).pipe(map(() => this.device.byCategory(cat.id))),
-      this.supabase.getTracksByTag(s.uploads || cat.name, limit),
-    ];
+    const sources: Observable<Track[]>[] = [this.supabase.getTracksByTag(s.uploads || cat.name, limit)];
     // Full songs from YouTube when the user has added a key (languages only, to save quota)
-    const ytQuery = s.youtube || (cat.group === 'language' ? `${cat.name} songs` : '');
-    if (ytQuery && this.youtube.hasKey()) sources.push(this.youtube.search(ytQuery, 15));
+    const ytQueries = Array.isArray(s.youtube) ? s.youtube : [s.youtube || (cat.group === 'language' ? `${cat.name} songs` : '')];
+    if (this.youtube.hasKey()) {
+      // At most two searches per page: each one costs part of the free daily quota
+      const yt = ytQueries.filter(Boolean).slice(0, 2);
+      yt.forEach((q) => sources.push(this.youtube.search(q, yt.length > 1 ? 12 : 15)));
+    }
     if (s.audiusGenre) sources.push(this.audius.getTrendingByGenre(s.audiusGenre, limit));
     (s.audius || []).forEach((q) =>
       sources.push(this.audius.searchTracks(q, Math.ceil(limit / 2)).pipe(map((ts) => ts.filter(matches))))
@@ -175,7 +190,16 @@ export class MusicApiService {
     const perTerm = terms.length > 1 ? Math.ceil(limit / terms.length) + 5 : limit;
     terms.forEach((term) => sources.push(this.itunes.search(term, perTerm, s.itunesCountry || 'IN')));
     if (s.radio) sources.push(this.radio.getRegionalTracks(s.radio, limit));
-    return this.merge(sources);
+
+    // Online results are kept for the session (re-opening a page is instant and
+    // doesn't hit the services' rate limits); your own songs are always fresh.
+    const key = `cat:${cat.id}:${limit}:${this.youtube.hasKey()}:${this.hidePreviews()}:${JSON.stringify(s)}`;
+    const online = this.cachedAny(key, () => this.merge(sources)).pipe(
+      tap((tracks) => {
+        if (!tracks.length) this.rowCache.delete(key); // try again next time (e.g. was offline)
+      })
+    );
+    return this.merge([from(this.device.ready).pipe(map(() => this.device.byCategory(cat.id))), online]);
   }
 
   getTracksByTag(tag: string, limit = 20): Observable<Track[]> {
