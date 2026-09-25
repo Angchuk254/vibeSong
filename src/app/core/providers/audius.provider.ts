@@ -15,7 +15,7 @@ export class AudiusProvider implements MusicProvider {
   name = 'Audius';
 
   private readonly http = inject(HttpClient);
-  private readonly appName = 'VibeSong';
+  private readonly appName = 'YakBeats';
   private readonly gateway = 'https://api.audius.co';
 
   /** Discovery node to use. Falls back to a node picked from the gateway's host list. */

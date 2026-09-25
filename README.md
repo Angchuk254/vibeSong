@@ -2,6 +2,8 @@
 
 A free, ad-free, no-login music app in the style of Spotify. It runs entirely in the browser and uses only free, keyless music sources.
 
+**Open it:** https://yakbeats.onrender.com (install it from the browser menu → *Add to Home screen*). The QR code in **Settings → Share YakBeats** always points here.
+
 ## Music sources
 
 | Source | What you get | Notes |
@@ -41,9 +43,9 @@ Everything personal is stored in your browser's localStorage. There are no accou
 
 The blueprint also sets the SPA rewrite (so deep links like `/artist/...` work) and cache headers (hashed files are cached forever; `index.html`, `ngsw.json` and the service worker are never cached, so updates arrive).
 
-### GitHub Pages (backup): https://angchuk254.github.io/yakbeats/
+### Old GitHub Pages address
 
-Built with `ng build --base-href /yakbeats/` and pushed to the `gh-pages` branch.
+https://angchuk254.github.io/yakbeats/ (the `gh-pages` branch) now only redirects to the Render site, keeping the path, so old links and shared QR codes still work.
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
 
