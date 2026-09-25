@@ -38,6 +38,10 @@ export class PlayerService {
   readonly playingFullVersion = signal(false);
   /** Play the full YouTube version of previews (needs a YouTube key) */
   readonly autoFullVersion = signal(this.storage.getAutoFull());
+  /** When the internet drops, play songs saved in My Songs (default on) */
+  readonly offlineSwitch = signal(this.storage.getOfflineSwitch());
+  /** Playing My Songs because we're offline; the online queue comes back when reconnected */
+  readonly offlineMode = signal(false);
 
   // ── Signals ──
   readonly currentTrack = signal<Track | null>(null);
@@ -94,6 +98,11 @@ export class PlayerService {
   private sleepTimer: ReturnType<typeof setTimeout> | null = null;
   private noticeTimer: ReturnType<typeof setTimeout> | null = null;
   private fetchingAutoplay = false;
+  /** What was playing when the connection dropped, to carry on when it's back */
+  private resumeAfterOffline: { track: Track; queue: Track[]; index: number; time: number; finished?: boolean } | null = null;
+  /** The listener wants music (pressed play / picked a song), as opposed to paused it */
+  private wantsToPlay = false;
+  private offlineTimer: ReturnType<typeof setTimeout> | null = null;
   /** Queue order before shuffle, so turning shuffle off restores it */
   private unshuffledQueue: Track[] | null = null;
   private pendingSeek: number | null = null;
@@ -113,6 +122,11 @@ export class PlayerService {
     this.yt.prepare();
   }
 
+  setOfflineSwitch(on: boolean): void {
+    this.offlineSwitch.set(on);
+    this.storage.setOfflineSwitch(on);
+  }
+
   setAutoFullVersion(on: boolean): void {
     this.autoFullVersion.set(on);
     this.storage.setAutoFull(on);
@@ -125,6 +139,8 @@ export class PlayerService {
     this.restoreVolume();
     this.restoreSession();
     this.setupMediaSession();
+    window.addEventListener('offline', () => this.checkOffline(4000));
+    window.addEventListener('online', () => this.backOnline());
 
     effect(() => this.storage.savePlayerPrefs({
       shuffle: this.isShuffled(),
@@ -139,6 +155,8 @@ export class PlayerService {
    * Play a single track, optionally replacing the queue with the list it came from
    */
   playTrack(track: Track, trackList?: Track[]): void {
+    // Picking an online song yourself replaces what we'd resume after going offline
+    if (this.offlineMode() && !DeviceMusicService.isDeviceTrack(track)) this.leaveOfflineMode();
     this.consecutiveFailures = 0;
     this.failedIds.delete(track.id);
 
@@ -179,8 +197,10 @@ export class PlayerService {
   togglePlay(): void {
     if (!this.currentTrack()) return;
     if (this.isPlaying()) {
+      this.wantsToPlay = false;
       this.media.pause();
     } else {
+      this.wantsToPlay = true;
       if (!this.media.src) {
         this.loadAndPlay(this.currentTrack()!, this.pendingSeek || 0);
         return;
@@ -201,9 +221,17 @@ export class PlayerService {
     if (nextIdx < q.length) {
       this.queueIndex.set(nextIdx);
       this.loadAndPlay(q[nextIdx]);
+    } else if (this.offlineMode() && q.length > 0) {
+      // Still offline: go round My Songs again in a new order
+      this.queue.set(this.shuffle(q));
+      this.queueIndex.set(0);
+      this.loadAndPlay(this.queue()[0]);
     } else if (this.repeatMode() === 'all' && q.length > 0) {
       this.queueIndex.set(0);
       this.loadAndPlay(q[0]);
+    } else if (this.autoplay() && !navigator.onLine && !DeviceMusicService.isDeviceTrack(this.currentTrack())) {
+      // Can't fetch more music offline: switch to My Songs, carry on when back
+      this.goOffline(true);
     } else if (this.autoplay()) {
       this.extendWithSimilar(true);
     } else if (auto) {
@@ -428,6 +456,7 @@ export class PlayerService {
   // ── Private Methods ──
 
   private sleepNow(): void {
+    this.wantsToPlay = false;
     this.media.pause();
     this.sleepAt.set(null);
     this.sleepTimer = null;
@@ -435,6 +464,7 @@ export class PlayerService {
   }
 
   private loadAndPlay(track: Track, startAt = 0): void {
+    this.wantsToPlay = true;
     this.clearLoadTimer();
     this.isLoading.set(true);
     this.currentTrack.set(track);
@@ -553,7 +583,7 @@ export class PlayerService {
 
     // Offline isn't the song's fault: keep the queue intact
     if (!navigator.onLine && !track.audio.startsWith(DEVICE_PREFIX)) {
-      this.flash("You're offline — songs from My Songs (files) still play");
+      this.goOffline();
       return;
     }
 
@@ -606,6 +636,7 @@ export class PlayerService {
 
   /** Top up the queue in the background when we're near the end */
   private maybePrefetchAutoplay(): void {
+    if (this.offlineMode()) return;
     if (!this.autoplay() || this.repeatMode() !== 'none') return;
     if (this.queue().length - this.queueIndex() <= 2) this.extendWithSimilar(false);
   }
@@ -672,8 +703,129 @@ export class PlayerService {
       }
     });
 
-    on('waiting', () => this.isLoading.set(true));
+    on('waiting', () => {
+      this.isLoading.set(true);
+      if (!navigator.onLine) this.checkOffline(3000);
+    });
     on('canplay', () => this.isLoading.set(false));
+  }
+
+  // ── Offline ──
+
+  /** Soon after the connection drops, see whether playback has stalled */
+  private checkOffline(delay: number): void {
+    if (this.offlineTimer) clearTimeout(this.offlineTimer);
+    this.offlineTimer = setTimeout(() => {
+      this.offlineTimer = null;
+      const track = this.currentTrack();
+      if (navigator.onLine || !track || DeviceMusicService.isDeviceTrack(track) || !this.wantsToPlay) return;
+      // Still playing from what was already downloaded: wait until it runs out
+      if (this.isPlaying() && !this.isLoading()) return;
+      this.goOffline();
+    }, delay);
+  }
+
+  /**
+   * The connection is gone and an online song can't play: remember where we
+   * were and play the songs saved on this device instead.
+   */
+  private goOffline(finished = false): void {
+    const track = this.currentTrack();
+    if (!track || DeviceMusicService.isDeviceTrack(track)) return;
+    this.clearLoadTimer();
+    this.isLoading.set(false);
+    this.isPlaying.set(false);
+
+    if (this.offlineMode()) {
+      // Picked an online song from the offline queue
+      this.flash("You're offline — this song needs internet");
+      return;
+    }
+
+    if (!this.resumeAfterOffline) {
+      this.saveSession();
+      this.resumeAfterOffline = {
+        track,
+        queue: this.queue(),
+        index: this.queueIndex(),
+        time: track.isLive || finished ? 0 : Math.max(this.media.currentTime || 0, this.currentTime()),
+        finished,
+      };
+    }
+
+    const files = this.device.tracks().filter((t) => DeviceMusicService.isDeviceTrack(t));
+    if (!this.offlineSwitch() || !files.length || !this.wantsToPlay) {
+      this.stopMedia();
+      this.flash(
+        files.length || !this.offlineSwitch()
+          ? "You're offline — music carries on when you're back online"
+          : "You're offline — add songs in Library → My Songs to keep listening offline. Music carries on when you're back online"
+      );
+      return;
+    }
+
+    this.offlineMode.set(true);
+    this.unshuffledQueue = null;
+    const mix = this.shuffle(files);
+    this.queue.set(mix);
+    this.queueIndex.set(0);
+    this.loadAndPlay(mix[0]);
+    this.flash(`📴 Offline — playing your My Songs. Back to "${track.name}" when you're online`);
+  }
+
+  /** Connection is back: return to what was playing before it dropped */
+  private backOnline(): void {
+    const r = this.resumeAfterOffline;
+    if (!r) return;
+    // Give the connection a moment to settle before streaming again
+    setTimeout(() => {
+      if (!navigator.onLine || this.resumeAfterOffline !== r) return;
+      const track = r.track;
+      const play = this.wantsToPlay;
+      this.leaveOfflineMode();
+      // Normally the song is still in its queue; if not, bring back just the song
+      const inQueue = r.queue[r.index]?.id === track.id;
+      this.queue.set(inQueue ? r.queue : [track]);
+      this.queueIndex.set(inQueue ? r.index : 0);
+      this.failedIds.delete(track.id);
+      this.consecutiveFailures = 0;
+      if (play && r.finished) {
+        // The queue had run out: carry on with similar music
+        this.currentTrack.set(track);
+        this.flash('📶 Back online — finding more music like this');
+        this.playNext(true);
+      } else if (play) {
+        this.loadAndPlay(track, r.time);
+        this.flash(`📶 Back online — resuming "${track.name}"`);
+      } else {
+        // Paused: put it back, ready to continue from the same spot
+        this.stopMedia();
+        this.currentTrack.set(track);
+        this.duration.set(track.duration || 0);
+        this.currentTime.set(r.time);
+        this.pendingSeek = r.time > 0 ? r.time : null;
+        this.updateMediaSession(track);
+        this.saveSession();
+        this.flash(`📶 Back online — tap play to continue "${track.name}"`);
+      }
+    }, 1500);
+  }
+
+  private leaveOfflineMode(): void {
+    this.offlineMode.set(false);
+    this.resumeAfterOffline = null;
+  }
+
+  /** Stop and unload the current song, so the next play() loads it afresh */
+  private stopMedia(): void {
+    this.html.pause();
+    this.html.removeAttribute('src');
+    this.html.load();
+    this.yt.stop();
+    this.media = this.html;
+    this.mode.set('audio');
+    this.isPlaying.set(false);
+    this.isLoading.set(false);
   }
 
   // ── Lock screen / headphone controls ──
@@ -713,6 +865,8 @@ export class PlayerService {
   // ── Persistence ──
 
   private saveSession(): void {
+    // The saved session keeps the online queue while the offline mix plays
+    if (this.offlineMode()) return;
     this.lastSave = Date.now();
     this.storage.savePlayerSession({
       queue: this.queue().slice(0, 200),
