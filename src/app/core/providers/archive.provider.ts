@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, forkJoin, from } from 'rxjs';
+import { Observable, of, from } from 'rxjs';
 import { map, catchError, switchMap, mergeMap, toArray, timeout } from 'rxjs/operators';
 import { Track } from '../../models';
 import { MusicProvider } from './music-provider.interface';

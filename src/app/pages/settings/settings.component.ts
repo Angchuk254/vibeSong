@@ -1,7 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { ThemeService, MusicApiService, DeviceMusicService } from '../../services';
+import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, PlayerService } from '../../services';
 
 @Component({
   selector: 'app-settings',
@@ -62,6 +62,57 @@ import { ThemeService, MusicApiService, DeviceMusicService } from '../../service
               </div>
               <i class="bi bi-chevron-right arrow"></i>
             </div>
+          </div>
+        </div>
+
+        <!-- YouTube -->
+        <div class="settings-section">
+          <h2 class="section-title">Full songs from YouTube</h2>
+          <div class="settings-card glass-panel yt-card">
+            <p class="yt-intro">
+              Songs play through YouTube's official player, so almost any song — Ladakhi, Spiti, Himachali, Bollywood —
+              plays in full. Without a key you can paste YouTube links in <a (click)="openDevice()" (keydown.enter)="openDevice()" tabindex="0">Library → My Songs</a>.
+              With a free key the app also searches YouTube for you and turns 30-second previews into full songs.
+            </p>
+
+            <form class="yt-key" (submit)="saveKey($event)">
+              <input #keyInput type="password" autocomplete="off" placeholder="Paste your YouTube API key"
+                     [value]="keyDraft()" (input)="keyDraft.set(keyInput.value)" aria-label="YouTube API key" />
+              <button class="vo-btn vo-btn-primary" type="submit" [disabled]="keyState() === 'checking'">
+                {{ keyState() === 'checking' ? 'Checking…' : 'Save' }}
+              </button>
+              @if (youtube.hasKey()) {
+                <button class="vo-btn vo-btn-ghost" type="button" (click)="removeKey()">Remove</button>
+              }
+            </form>
+            @if (keyState() === 'ok' || (keyState() === 'idle' && youtube.hasKey())) {
+              <p class="yt-status ok"><i class="bi bi-check-circle-fill"></i> Key active — YouTube search is on.</p>
+            } @else if (keyState() === 'bad') {
+              <p class="yt-status bad"><i class="bi bi-x-circle-fill"></i> That key didn't work. Check it's copied fully and that "YouTube Data API v3" is enabled.</p>
+            }
+
+            <div class="setting-row" tabindex="0" role="switch" [attr.aria-checked]="player.autoFullVersion()"
+                 (click)="player.setAutoFullVersion(!player.autoFullVersion())"
+                 (keydown.enter)="player.setAutoFullVersion(!player.autoFullVersion())">
+              <div class="setting-icon appearance"><i class="bi bi-youtube"></i></div>
+              <div class="setting-label">
+                <h3>Play previews in full</h3>
+                <p>When a 30-second preview is played, play the full song from YouTube instead (needs the key)</p>
+              </div>
+              <div class="toggle-switch" [class.active]="player.autoFullVersion()"><div class="toggle-knob"></div></div>
+            </div>
+
+            <details class="yt-help">
+              <summary>How to get a free key (about 3 minutes)</summary>
+              <ol>
+                <li>Open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud → YouTube Data API v3</a> and sign in with any Google account.</li>
+                <li>Create a project if asked (any name), then press <strong>Enable</strong>.</li>
+                <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <strong>Create credentials → API key</strong>, and copy it.</li>
+                <li>Recommended: edit the key → <em>Website restrictions</em> → add <code>{{ origin }}/*</code>, so only this site can use it.</li>
+                <li>Paste it above and press Save.</li>
+              </ol>
+              <p>It's free: about 100 searches a day. Results are remembered for a week, so repeat plays cost nothing. The key is stored only in this browser.</p>
+            </details>
           </div>
         </div>
 
@@ -281,6 +332,60 @@ import { ThemeService, MusicApiService, DeviceMusicService } from '../../service
       font-weight: 700;
       border: 1px solid rgba(108, 92, 231, 0.2);
     }
+
+    .yt-card {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .yt-intro {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--vo-text-secondary);
+      line-height: 1.5;
+
+      a { color: var(--vo-accent-light); cursor: pointer; }
+    }
+
+    .yt-key {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+
+      input {
+        flex: 1;
+        min-width: 200px;
+        height: 42px;
+        padding: 0 14px;
+        border-radius: var(--vo-radius-md);
+        border: 1px solid var(--vo-border-light);
+        background: var(--vo-bg-input);
+        color: var(--vo-text-primary);
+        outline: none;
+
+        &:focus { border-color: var(--vo-accent); }
+      }
+    }
+
+    .yt-status {
+      margin: 0;
+      font-size: 0.85rem;
+
+      &.ok { color: var(--vo-secondary); }
+      &.bad { color: #ff6b6b; }
+    }
+
+    .yt-help {
+      font-size: 0.85rem;
+      color: var(--vo-text-secondary);
+
+      summary { cursor: pointer; color: var(--vo-text-primary); font-weight: 600; }
+      ol { padding-left: 20px; margin: 10px 0; line-height: 1.7; }
+      a { color: var(--vo-accent-light); }
+      code { background: var(--vo-bg-input); padding: 1px 6px; border-radius: 4px; }
+    }
   `]
 })
 export class SettingsComponent {
@@ -288,6 +393,32 @@ export class SettingsComponent {
   readonly theme = inject(ThemeService);
   readonly musicApi = inject(MusicApiService);
   readonly device = inject(DeviceMusicService);
+  readonly youtube = inject(YouTubeService);
+  readonly player = inject(PlayerService);
+  readonly origin = location.origin + location.pathname.replace(/\/settings.*$/, '');
+  readonly keyDraft = signal('');
+  readonly keyState = signal<'idle' | 'checking' | 'ok' | 'bad'>('idle');
+
+  saveKey(e: Event) {
+    e.preventDefault();
+    const key = this.keyDraft().trim();
+    if (!key) return;
+    this.keyState.set('checking');
+    this.youtube.testKey(key).subscribe((ok) => {
+      this.keyState.set(ok ? 'ok' : 'bad');
+      if (ok) {
+        this.youtube.setApiKey(key);
+        this.musicApi.clearCache();
+        this.keyDraft.set('');
+      }
+    });
+  }
+
+  removeKey() {
+    this.youtube.setApiKey('');
+    this.musicApi.clearCache();
+    this.keyState.set('idle');
+  }
 
   openDevice() {
     this.router.navigate(['/library'], { queryParams: { tab: 'device' } });

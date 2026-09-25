@@ -8,11 +8,12 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
 import { BottomNavComponent } from '../bottom-nav/bottom-nav.component';
 import { PlayerComponent } from '../../player/player.component';
 import { PlaylistPickerComponent } from '../../shared/playlist-picker/playlist-picker.component';
+import { VideoDockComponent } from '../../player/video-dock/video-dock.component';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, BottomNavComponent, PlayerComponent, PlaylistPickerComponent],
+  imports: [RouterOutlet, SidebarComponent, BottomNavComponent, PlayerComponent, PlaylistPickerComponent, VideoDockComponent],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
@@ -26,6 +27,7 @@ import { PlaylistPickerComponent } from '../../shared/playlist-picker/playlist-p
       <app-player></app-player>
       <app-bottom-nav></app-bottom-nav>
       <app-playlist-picker></app-playlist-picker>
+      <app-video-dock></app-video-dock>
     </div>
   `,
   styles: [`

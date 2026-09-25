@@ -3,10 +3,16 @@
 // ============================================
 
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
+import { firstValueFrom, timeout } from 'rxjs';
 import { Track } from '../models';
 import { StorageService } from './storage.service';
 import { MusicApiService } from './music-api.service';
 import { DeviceMusicService, DEVICE_PREFIX } from './device-music.service';
+import { YouTubeService, YT_PREFIX } from './youtube.service';
+import { YouTubeMedia } from './youtube-media';
+
+/** Whatever is currently producing sound: an <audio> element or the YouTube player */
+type MediaLike = HTMLAudioElement | YouTubeMedia;
 
 /** How long a track may sit loading before we give up on it */
 const LOAD_TIMEOUT_MS = 15000;
@@ -18,7 +24,20 @@ export class PlayerService {
   private storage = inject(StorageService);
   private musicApi = inject(MusicApiService);
   private device = inject(DeviceMusicService);
-  private audio = new Audio();
+  private youtube = inject(YouTubeService);
+  private html = new Audio();
+  private yt = new YouTubeMedia(() => this.youtube.loadApi(), () => this.videoHost);
+  private media: MediaLike = this.html;
+  private videoHost: HTMLElement | null = null;
+
+  /** Whether the full-screen player is open (the video window follows it) */
+  readonly playerExpanded = signal(false);
+  /** 'youtube' while a song plays through the embedded YouTube player */
+  readonly mode = signal<'audio' | 'youtube'>('audio');
+  /** Set when a 30s preview is being played in full from YouTube instead */
+  readonly playingFullVersion = signal(false);
+  /** Play the full YouTube version of previews (needs a YouTube key) */
+  readonly autoFullVersion = signal(this.storage.getAutoFull());
 
   // ── Signals ──
   readonly currentTrack = signal<Track | null>(null);
@@ -80,6 +99,21 @@ export class PlayerService {
   private pendingSeek: number | null = null;
   private lastSave = 0;
 
+  /** The page element the YouTube player lives in (see VideoDockComponent) */
+  setVideoHost(el: HTMLElement | null): void {
+    this.videoHost = el;
+  }
+
+  /** Warm up the YouTube player if it's likely to be needed */
+  prepareYouTube(): void {
+    this.yt.prepare();
+  }
+
+  setAutoFullVersion(on: boolean): void {
+    this.autoFullVersion.set(on);
+    this.storage.setAutoFull(on);
+  }
+
   constructor() {
     this.setupAudioEvents();
     this.restoreVolume();
@@ -139,13 +173,15 @@ export class PlayerService {
   togglePlay(): void {
     if (!this.currentTrack()) return;
     if (this.isPlaying()) {
-      this.audio.pause();
+      this.media.pause();
     } else {
-      if (!this.audio.src) {
-        this.loadAndPlay(this.currentTrack()!);
+      if (!this.media.src) {
+        this.loadAndPlay(this.currentTrack()!, this.pendingSeek || 0);
         return;
       }
-      this.audio.play().catch((err) => this.handleFailure(err));
+      this.media.play().catch((err) => {
+        if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') this.handleFailure(err);
+      });
     }
   }
 
@@ -174,7 +210,7 @@ export class PlayerService {
    */
   playPrevious(): void {
     if (this.currentTime() > 3 && !this.isLive()) {
-      this.audio.currentTime = 0;
+      this.media.currentTime = 0;
       return;
     }
 
@@ -201,21 +237,21 @@ export class PlayerService {
   seekTo(percentage: number): void {
     const dur = this.duration();
     if (dur > 0 && isFinite(dur)) {
-      this.audio.currentTime = (percentage / 100) * dur;
+      this.media.currentTime = (percentage / 100) * dur;
     }
   }
 
   /** Jump to an exact time in seconds */
   seekToTime(seconds: number): void {
     const dur = this.duration();
-    if (dur > 0 && isFinite(dur)) this.audio.currentTime = Math.max(0, Math.min(dur - 0.5, seconds));
+    if (dur > 0 && isFinite(dur)) this.media.currentTime = Math.max(0, Math.min(dur - 0.5, seconds));
   }
 
   /** Skip forward/back by seconds */
   seekBy(seconds: number): void {
     const dur = this.duration();
     if (!(dur > 0 && isFinite(dur))) return;
-    this.audio.currentTime = Math.max(0, Math.min(dur - 0.5, this.audio.currentTime + seconds));
+    this.media.currentTime = Math.max(0, Math.min(dur - 0.5, this.media.currentTime + seconds));
   }
 
   /**
@@ -224,7 +260,7 @@ export class PlayerService {
   setVolume(vol: number): void {
     const v = Math.max(0, Math.min(1, vol));
     this.volume.set(v);
-    this.audio.volume = v;
+    this.applyVolume(v);
     this.isMuted.set(v === 0);
     this.storage.saveVolume(v);
   }
@@ -235,11 +271,11 @@ export class PlayerService {
   toggleMute(): void {
     if (this.isMuted()) {
       const restored = this.storage.getVolume() || 0.8;
-      this.audio.volume = restored;
+      this.applyVolume(restored);
       this.volume.set(restored);
       this.isMuted.set(false);
     } else {
-      this.audio.volume = 0;
+      this.applyVolume(0);
       this.isMuted.set(true);
     }
   }
@@ -386,7 +422,7 @@ export class PlayerService {
   // ── Private Methods ──
 
   private sleepNow(): void {
-    this.audio.pause();
+    this.media.pause();
     this.sleepAt.set(null);
     this.sleepTimer = null;
     this.flash('Sleep timer ended — good night');
@@ -413,22 +449,68 @@ export class PlayerService {
     });
   }
 
-  /** Songs added from this device live in IndexedDB and need a blob: URL */
-  private sourceFor(track: Track): Promise<string | null> {
-    return track.audio.startsWith(DEVICE_PREFIX) ? this.device.resolve(track.audio) : Promise.resolve(track.audio);
+  /**
+   * Where to actually play a track from:
+   * - songs added from this device live in IndexedDB and need a blob: URL
+   * - 30s previews are swapped for their full YouTube version when possible
+   */
+  private async sourceFor(track: Track): Promise<string | null> {
+    this.playingFullVersion.set(false);
+    if (track.audio.startsWith(DEVICE_PREFIX)) return this.device.resolve(track.audio);
+    if (track.isPreview && this.autoFullVersion() && this.youtube.hasKey()) {
+      try {
+        const id = await firstValueFrom(this.youtube.findFullVersion(track).pipe(timeout(8000)));
+        if (id) {
+          this.playingFullVersion.set(true);
+          return `${YT_PREFIX}${id}`;
+        }
+      } catch {
+        /* fall back to the preview */
+      }
+    }
+    return track.audio;
+  }
+
+  /** Switch between the <audio> element and the YouTube player */
+  private useEngine(src: string): void {
+    const wantYouTube = src.startsWith(YT_PREFIX);
+    if (wantYouTube && this.media !== this.yt) {
+      this.html.pause();
+      this.html.removeAttribute('src');
+      this.html.load();
+      this.media = this.yt;
+    } else if (!wantYouTube && this.media === this.yt) {
+      this.yt.stop();
+      this.media = this.html;
+    }
+    this.mode.set(wantYouTube ? 'youtube' : 'audio');
+    this.applyVolume(this.isMuted() ? 0 : this.volume());
+  }
+
+  private applyVolume(v: number): void {
+    this.html.volume = v;
+    this.yt.volume = v;
   }
 
   private startPlayback(track: Track, src: string): void {
-    this.audio.src = src;
-    this.audio.load();
+    this.useEngine(src);
+    this.media.src = src;
+    this.media.load();
+    if (this.media === this.yt && this.pendingSeek) {
+      // YouTube has no loadedmetadata event; it takes the start time up front
+      this.yt.currentTime = this.pendingSeek;
+      this.pendingSeek = null;
+    }
 
+    // The YouTube player needs longer the first time (it loads its own script)
+    const limit = this.media === this.yt ? LOAD_TIMEOUT_MS * 2 : LOAD_TIMEOUT_MS;
     this.loadTimer = setTimeout(() => {
       if (this.currentTrack()?.id === track.id && this.isLoading() && !this.isPlaying()) {
         this.handleFailure(new Error('Timed out loading'));
       }
-    }, LOAD_TIMEOUT_MS);
+    }, limit);
 
-    this.audio
+    this.media
       .play()
       .then(() => {
         if (this.currentTrack()?.id !== track.id) return;
@@ -517,62 +599,69 @@ export class PlayerService {
   }
 
   private setupAudioEvents(): void {
-    this.audio.preload = 'auto';
+    this.html.preload = 'auto';
 
-    this.audio.addEventListener('timeupdate', () => {
-      this.currentTime.set(this.audio.currentTime);
+    // Both engines emit the same events; only the active one is listened to
+    const on = (type: string, fn: () => void) =>
+      [this.html, this.yt].forEach((m: EventTarget) =>
+        m.addEventListener(type, (e) => {
+          if (e.target === this.media) fn();
+        })
+      );
+
+    on('timeupdate', () => {
+      this.currentTime.set(this.media.currentTime);
       if (Date.now() - this.lastSave > 5000) this.saveSession();
     });
 
-    this.audio.addEventListener('durationchange', () => {
-      const d = this.audio.duration;
+    on('durationchange', () => {
+      const d = this.media.duration;
       this.duration.set(isFinite(d) ? d : 0);
     });
 
-    this.audio.addEventListener('loadedmetadata', () => {
+    on('loadedmetadata', () => {
       if (this.pendingSeek !== null) {
-        this.audio.currentTime = this.pendingSeek;
+        this.media.currentTime = this.pendingSeek;
         this.pendingSeek = null;
       }
     });
 
-    this.audio.addEventListener('play', () => this.isPlaying.set(true));
-    this.audio.addEventListener('playing', () => {
+    on('play', () => this.isPlaying.set(true));
+    on('playing', () => {
       this.clearLoadTimer();
       this.isPlaying.set(true);
       this.isLoading.set(false);
     });
-    this.audio.addEventListener('pause', () => {
+    on('pause', () => {
       this.isPlaying.set(false);
       this.saveSession();
     });
 
-    this.audio.addEventListener('ended', () => {
+    on('ended', () => {
       if (this.sleepAt() === 'track') {
         this.sleepNow();
         return;
       }
       if (this.repeatMode() === 'one') {
-        this.audio.currentTime = 0;
-        this.audio.play().catch(console.error);
+        this.media.currentTime = 0;
+        this.media.play().catch(console.error);
       } else {
         this.playNext(true);
       }
     });
 
-    this.audio.addEventListener('error', () => {
-      // Ignore errors from clearing src
-      if (!this.audio.src || this.audio.src === location.href) return;
-      this.handleFailure(this.audio.error);
+    on('error', () => {
+      if (this.media === this.html) {
+        // Ignore errors from clearing src
+        if (!this.html.src || this.html.src === location.href) return;
+        this.handleFailure(this.html.error);
+      } else {
+        this.handleFailure(this.yt.error);
+      }
     });
 
-    this.audio.addEventListener('waiting', () => {
-      this.isLoading.set(true);
-    });
-
-    this.audio.addEventListener('canplay', () => {
-      this.isLoading.set(false);
-    });
+    on('waiting', () => this.isLoading.set(true));
+    on('canplay', () => this.isLoading.set(false));
   }
 
   // ── Lock screen / headphone controls ──
@@ -587,7 +676,7 @@ export class PlayerService {
       ['nexttrack', () => this.playNext()],
       ['seekbackward', () => this.seekBy(-10)],
       ['seekforward', () => this.seekBy(10)],
-      ['seekto', (d) => d.seekTime !== undefined && (this.audio.currentTime = d.seekTime)],
+      ['seekto', (d) => d.seekTime !== undefined && (this.media.currentTime = d.seekTime)],
     ];
     handlers.forEach(([action, handler]) => {
       try {
@@ -616,7 +705,7 @@ export class PlayerService {
     this.storage.savePlayerSession({
       queue: this.queue().slice(0, 200),
       index: this.queueIndex(),
-      time: this.isLive() ? 0 : this.audio.currentTime || 0,
+      time: this.isLive() ? 0 : this.media.currentTime || 0,
     });
   }
 
@@ -639,11 +728,14 @@ export class PlayerService {
     this.duration.set(track.duration || 0);
     this.currentTime.set(session.time || 0);
     this.isPlayerVisible.set(true);
-    this.audio.preload = 'none';
+    this.html.preload = 'none';
     if (session.time && !track.isLive) this.pendingSeek = session.time;
-    this.sourceFor(track).then((src) => {
-      if (src && this.currentTrack()?.id === track.id && !this.audio.src) this.audio.src = src;
-    });
+    // Local files can be primed now; YouTube and previews load on the first tap
+    if (!track.audio.startsWith(YT_PREFIX) && !track.isPreview) {
+      this.sourceFor(track).then((src) => {
+        if (src && this.currentTrack()?.id === track.id && !this.html.src) this.html.src = src;
+      });
+    }
     this.updateMediaSession(track);
   }
 
@@ -651,9 +743,9 @@ export class PlayerService {
     const vol = this.storage.getVolume();
     if (vol !== null) {
       this.volume.set(vol);
-      this.audio.volume = vol;
+      this.applyVolume(vol);
     } else {
-      this.audio.volume = 0.8;
+      this.applyVolume(0.8);
     }
   }
 

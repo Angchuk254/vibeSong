@@ -85,11 +85,16 @@ import { Track } from '../models';
               </div>
             </div>
 
-            <div class="player__expanded-art" [class.player__expanded-art--playing]="player.isPlaying()">
-              <img [src]="art(track)"
-                   [alt]="track.name"
-                   class="player__album-art" />
-            </div>
+            @if (player.mode() === 'youtube') {
+              <!-- The YouTube video window positions itself over this slot -->
+              <div class="player__video-slot"></div>
+            } @else {
+              <div class="player__expanded-art" [class.player__expanded-art--playing]="player.isPlaying()">
+                <img [src]="art(track)"
+                     [alt]="track.name"
+                     class="player__album-art" />
+              </div>
+            }
 
             <div class="player__expanded-info">
               <h2 class="player__track-name" [title]="track.name">{{ track.name }}</h2>
@@ -101,8 +106,10 @@ import { Track } from '../models';
                 }
                 @if (track.genre) { <span class="player__genre">&nbsp;· {{ track.genre }}</span> }
               </p>
-              @if (track.isPreview) {
-                <p class="player__hint"><i class="bi bi-info-circle"></i> 30-second preview — only a short clip is free to stream</p>
+              @if (player.playingFullVersion()) {
+                <p class="player__hint player__hint--full"><i class="bi bi-youtube"></i> Playing the full song from YouTube</p>
+              } @else if (track.isPreview) {
+                <p class="player__hint"><i class="bi bi-info-circle"></i> 30-second preview — add a free YouTube key in Settings to hear full songs here</p>
                 <div class="player__full">
                   <a class="player__chip" [href]="youtube(track)" target="_blank" rel="noopener"><i class="bi bi-youtube"></i> Full song on YouTube</a>
                   @if (track.externalUrl) {
@@ -973,6 +980,22 @@ import { Track } from '../models';
       a { text-decoration: none; }
       .bi-youtube { color: #ff3d3d; }
     }
+
+    .player__video-slot {
+      flex-shrink: 0;
+      width: 100%;
+      max-width: 520px;
+      aspect-ratio: 16 / 9;
+      min-height: 200px;
+      margin: 10px 0 24px;
+      border-radius: var(--vo-radius-lg);
+      background: #000;
+    }
+
+    .player__hint--full {
+      color: var(--vo-text-secondary);
+      .bi-youtube { color: #ff3d3d; }
+    }
   `],
 })
 export class PlayerComponent {
@@ -980,7 +1003,8 @@ export class PlayerComponent {
   readonly library = inject(LibraryService);
   private readonly storage = inject(StorageService);
 
-  readonly isExpanded = signal(false);
+  /** Shared with the video window so it can follow the full-screen player */
+  readonly isExpanded = this.player.playerExpanded;
   readonly recentTracks = signal<Track[]>([]);
   readonly panel = signal<'queue' | 'lyrics' | 'recent'>('queue');
   private readonly router = inject(Router);

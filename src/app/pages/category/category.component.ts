@@ -69,7 +69,7 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
                   @if (fullSongs().length === 0) { No full {{ category()!.name }} songs in the free catalogs yet }
                   @else { Have more {{ category()!.name }} songs? }
                 </strong>
-                <span>Add MP3s from your phone or computer — they play in full, stay on this device, and show up right here.</span>
+                <span>Paste a YouTube link (song or playlist) or add audio files — they play in full and show up right here.</span>
               </div>
               <button class="vo-btn vo-btn-primary" (click)="addOwn()"><i class="bi bi-plus-lg"></i> Add your songs</button>
             </div>

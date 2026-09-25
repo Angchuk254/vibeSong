@@ -2,11 +2,11 @@
 // vibeOnly — Library Component
 // ============================================
 
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TrackListItemComponent, ArtistCardComponent } from '../../shared';
-import { StorageService, PlayerService, LibraryService, DeviceMusicService } from '../../services';
+import { StorageService, PlayerService, LibraryService, DeviceMusicService, YouTubeService } from '../../services';
 import { MUSIC_CATEGORIES, CATEGORY_GROUPS } from '../../core/categories.data';
 import { Track } from '../../models';
 
@@ -140,9 +140,22 @@ type Sort = 'recent' | 'title' | 'artist';
         @if (activeTab() === 'device') {
           <div class="device-add">
             <div class="device-add__text">
-              <strong><i class="bi bi-phone"></i> Add songs from your phone or computer</strong>
-              <span>Perfect for Ladakhi, Spiti and other music the free catalogs don't have. Songs play in full, work offline, and are stored only in this browser.</span>
+              <strong><i class="bi bi-music-note-list"></i> Add full songs to My Songs</strong>
+              <span>Perfect for Ladakhi, Spiti and other music the free catalogs don't have. Pick a category, then paste a YouTube link or add audio files.</span>
             </div>
+
+            <form class="yt-add" (submit)="addYouTube($event)">
+              <i class="bi bi-youtube"></i>
+              <input #ytInput type="text" inputmode="url" placeholder="Paste a YouTube song or playlist link"
+                     [value]="ytLink()" (input)="ytLink.set(ytInput.value)" [disabled]="ytBusy()" aria-label="YouTube link" />
+              <button class="vo-btn vo-btn-primary" type="submit" [disabled]="!ytLink().trim() || ytBusy()">
+                @if (ytBusy()) { <i class="bi bi-arrow-repeat spin"></i> } @else { Add }
+              </button>
+            </form>
+            <!-- A playlist is read by briefly cueing it in YouTube's own player, which must be visible -->
+            <div class="yt-reader" #ytReader [class.yt-reader--active]="ytReading()"></div>
+            @if (ytProgress()) { <span class="hint">{{ ytProgress() }}</span> }
+
             <div class="device-add__controls">
               <label class="field">
                 <span>Category</span>
@@ -156,8 +169,8 @@ type Sort = 'recent' | 'title' | 'artist';
                   }
                 </select>
               </label>
-              <label class="vo-btn vo-btn-primary" [class.disabled]="device.importing()">
-                <i class="bi bi-plus-lg"></i> Choose songs
+              <label class="vo-btn vo-btn-ghost" [class.disabled]="device.importing()">
+                <i class="bi bi-folder2-open"></i> Add audio files
                 <input type="file" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" multiple hidden
                        [disabled]="!!device.importing()" (change)="addDeviceFiles($event)" />
               </label>
@@ -363,6 +376,47 @@ type Sort = 'recent' | 'title' | 'artist';
 
       strong { font-size: 1rem; i { color: var(--vo-accent-light); } }
       span { font-size: 0.85rem; color: var(--vo-text-secondary); }
+    }
+
+    .yt-add {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 4px 4px 14px;
+      border-radius: var(--vo-radius-xl);
+      background: var(--vo-bg-input);
+      border: 1px solid var(--vo-border-light);
+
+      > i { color: #ff3d3d; font-size: 1.2rem; }
+
+      input {
+        flex: 1;
+        min-width: 0;
+        height: 40px;
+        border: none;
+        background: none;
+        color: var(--vo-text-primary);
+        outline: none;
+        font-size: 0.9rem;
+      }
+
+      button { padding: 8px 18px; }
+      button:disabled { opacity: 0.5; }
+    }
+
+    .spin { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .yt-reader {
+      width: 0;
+      height: 0;
+      overflow: hidden;
+
+      &--active {
+        width: 200px;
+        height: 200px;
+        border-radius: var(--vo-radius-md);
+      }
     }
 
     .device-add__controls {
@@ -700,7 +754,7 @@ export class LibraryComponent implements OnInit {
     { id: 'liked', label: 'Liked Songs' },
     { id: 'playlists', label: 'Playlists' },
     { id: 'artists', label: 'Artists' },
-    { id: 'device', label: 'On this device' },
+    { id: 'device', label: 'My Songs' },
     { id: 'recent', label: 'Recent' },
     { id: 'stats', label: 'Your Stats' },
   ];
@@ -725,7 +779,56 @@ export class LibraryComponent implements OnInit {
   }
 
   deviceId(track: Track): string {
-    return track.audio.replace('device:', '');
+    return track.id.replace(/^device-/, '');
+  }
+
+  // ── YouTube links ──
+
+  private youtube = inject(YouTubeService);
+  @ViewChild('ytReader') ytReader?: ElementRef<HTMLElement>;
+  ytLink = signal('');
+  ytBusy = signal(false);
+  ytReading = signal(false);
+  ytProgress = signal('');
+
+  async addYouTube(e: Event): Promise<void> {
+    e.preventDefault();
+    const { videoId, listId } = this.youtube.parseUrl(this.ytLink());
+    if (!videoId && !listId) {
+      this.deviceMessage.set("That doesn't look like a YouTube link. Copy it from the Share button on YouTube.");
+      return;
+    }
+    const cat = MUSIC_CATEGORIES.find((c) => c.id === this.importCategory());
+    this.ytBusy.set(true);
+    this.deviceMessage.set('');
+    try {
+      let ids: string[] = [];
+      if (listId) {
+        this.ytReading.set(true);
+        this.ytProgress.set('Reading the playlist…');
+        try {
+          ids = await this.youtube.playlistIds(listId, this.ytReader!.nativeElement);
+        } finally {
+          this.ytReading.set(false);
+        }
+      }
+      if (!ids.length && videoId) ids = [videoId];
+      if (!ids.length) throw new Error('No videos found in that playlist');
+
+      const videos = await this.youtube.videosInfo(ids, (n) => this.ytProgress.set(`Getting song details… ${n} of ${ids.length}`));
+      const added = await this.device.addYouTube(videos, this.importCategory());
+      this.ytLink.set('');
+      this.deviceMessage.set(
+        added
+          ? `Added ${added} song${added === 1 ? '' : 's'} from YouTube${cat ? ` to ${cat.name}` : ''}. Tap one to play the full song.`
+          : 'Those songs are already in My Songs.'
+      );
+    } catch (err) {
+      this.deviceMessage.set(`Couldn't add that link: ${(err as Error)?.message || 'unknown error'}`);
+    } finally {
+      this.ytBusy.set(false);
+      this.ytProgress.set('');
+    }
   }
 
   addDeviceFiles(e: Event): void {

@@ -11,6 +11,8 @@ A free, ad-free, no-login music app in the style of Spotify. It runs entirely in
 | Internet Archive | Full songs | Public-domain recordings, including 78rpm-era classics |
 | Radio Browser | Live radio | HTTPS, non-HLS stations only, labelled **LIVE**. Covers India, Nepal, news, lo-fi, jazz and more |
 | [LRCLIB](https://lrclib.net) | Synced lyrics | Shown in the full-screen player |
+| YouTube (official embedded player) | Full songs | Paste song or playlist links in **Library → My Songs**. With a free YouTube Data API key (Settings), the app also searches YouTube and plays 30s previews in full. YouTube may show its own ads, and the video stays visible while playing, as YouTube requires |
+| Your own audio files | Full songs | **Library → My Songs → Add audio files**, stored in the browser (IndexedDB) |
 | Your Supabase uploads (optional) | Full songs | Add your URL and anon key in `src/app/core/environment.ts` to enable uploads and `/admin` |
 
 No setup is needed: `npm install && npm start`.

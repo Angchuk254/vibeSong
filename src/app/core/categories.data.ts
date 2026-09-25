@@ -14,7 +14,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'bollywood',
     description: 'Cinematic hits and Bollywood soundtracks',
     group: 'language',
-    sources: { uploads: 'Bollywood', itunes: 'bollywood hits', audius: ['bollywood'] },
+    sources: { youtube: 'bollywood songs', uploads: 'Bollywood', itunes: 'bollywood hits', audius: ['bollywood'] },
   },
   {
     id: 'hindi',
@@ -34,7 +34,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'punjabi',
     description: 'Energetic Punjabi beats and bhangra',
     group: 'language',
-    sources: { itunes: 'punjabi', audius: ['punjabi'] },
+    sources: { youtube: 'punjabi songs', itunes: 'punjabi', audius: ['punjabi'] },
   },
   {
     id: 'tamil',
@@ -124,7 +124,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'ladakhi',
     description: 'Folk songs, modern Ladakhi pop and fusion from Leh, Kargil and Zanskar',
     group: 'language',
-    sources: {
+    sources: { youtube: 'ladakhi song',
       uploads: 'Ladakhi',
       audius: ['ladakhi', 'ladakh', 'leh ladakh', 'zanskar', 'kargil'],
       match: ['ladakh', 'leh', 'zanskar', 'kargil', 'changthang', 'nubra', 'julley', 'juley'],
@@ -141,7 +141,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'spiti',
     description: 'Songs from Spiti, Kinnaur and Lahaul — Bhoti, Kinnauri and Lahauli folk',
     group: 'language',
-    sources: {
+    sources: { youtube: 'kinnauri spiti song',
       uploads: 'Spiti',
       audius: ['spiti', 'kinnauri', 'kinnaur', 'lahaul', 'bhoti'],
       match: ['spiti', 'kinnaur', 'lahaul', 'lahul', 'bhoti', 'kaza', 'tabo'],
@@ -158,7 +158,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'tibet',
     description: 'Tibetan chants and modern Himalayan melodies',
     group: 'language',
-    sources: { uploads: 'Tibetan', audius: ['tibetan', 'singing bowl', 'tibetan folk'], itunes: ['tibetan', 'tibetan song', 'tibetan folk'], archive: 'tibetan music' },
+    sources: { youtube: 'tibetan song', uploads: 'Tibetan', audius: ['tibetan', 'singing bowl', 'tibetan folk'], itunes: ['tibetan', 'tibetan song', 'tibetan folk'], archive: 'tibetan music' },
   },
   {
     id: 'nepal',
@@ -168,7 +168,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'nepal',
     description: 'Folk and modern pop from Nepal',
     group: 'language',
-    sources: { itunes: 'nepali songs', audius: ['nepali', 'nepal'] },
+    sources: { youtube: 'nepali song', itunes: 'nepali songs', audius: ['nepali', 'nepal'] },
   },
   {
     id: 'pahadi',
@@ -178,7 +178,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'pahadi',
     description: 'Melodies from the Himalayan foothills',
     group: 'language',
-    sources: { itunes: 'pahadi', audius: ['pahadi'] },
+    sources: { youtube: 'pahadi song', itunes: 'pahadi', audius: ['pahadi'] },
   },
   {
     id: 'uttarakhand',
@@ -188,7 +188,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'uttarakhand',
     description: 'Garhwali and Kumaoni songs',
     group: 'language',
-    sources: { itunes: 'garhwali', audius: ['pahadi'] },
+    sources: { youtube: 'garhwali kumaoni song', itunes: 'garhwali', audius: ['pahadi'] },
   },
   {
     id: 'himachali',
@@ -198,7 +198,7 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
     tag: 'himachali',
     description: 'Folk songs from Himachal',
     group: 'language',
-    sources: { uploads: 'Pahadi', itunes: ['himachali', 'himachali nati', 'pahari nati'], audius: ['himachal', 'nati'], radio: 'himachali' },
+    sources: { youtube: 'himachali nati song', uploads: 'Pahadi', itunes: ['himachali', 'himachali nati', 'pahari nati'], audius: ['himachal', 'nati'], radio: 'himachali' },
   },
   {
     id: 'pakistan',

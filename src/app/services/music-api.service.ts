@@ -14,6 +14,7 @@ import { ItunesProvider } from '../core/providers/itunes.provider';
 import { MUSIC_CATEGORIES } from '../core/categories.data';
 import { DeviceMusicService } from './device-music.service';
 import { StorageService } from './storage.service';
+import { YouTubeService } from './youtube.service';
 
 /**
  * Aggregates the music sources. Full-length songs (your Supabase uploads, Audius,
@@ -29,6 +30,7 @@ export class MusicApiService {
   private itunes = inject(ItunesProvider);
   private device = inject(DeviceMusicService);
   private storage = inject(StorageService);
+  private youtube = inject(YouTubeService);
 
   /** When on, 30-second previews are left out everywhere */
   readonly hidePreviews = signal(this.storage.getHidePreviews());
@@ -161,6 +163,9 @@ export class MusicApiService {
       from(this.device.ready).pipe(map(() => this.device.byCategory(cat.id))),
       this.supabase.getTracksByTag(s.uploads || cat.name, limit),
     ];
+    // Full songs from YouTube when the user has added a key (languages only, to save quota)
+    const ytQuery = s.youtube || (cat.group === 'language' ? `${cat.name} songs` : '');
+    if (ytQuery && this.youtube.hasKey()) sources.push(this.youtube.search(ytQuery, 15));
     if (s.audiusGenre) sources.push(this.audius.getTrendingByGenre(s.audiusGenre, limit));
     (s.audius || []).forEach((q) =>
       sources.push(this.audius.searchTracks(q, Math.ceil(limit / 2)).pipe(map((ts) => ts.filter(matches))))
@@ -186,6 +191,7 @@ export class MusicApiService {
     return this.merge([
       from(this.device.ready).pipe(map(() => this.device.search(query))),
       this.supabase.searchTracks(query, limit),
+      this.youtube.search(query, 10),
       this.audius.searchTracks(query, limit),
       this.archive.searchTracks(query, 6),
       this.itunes.searchTracks(query, limit),

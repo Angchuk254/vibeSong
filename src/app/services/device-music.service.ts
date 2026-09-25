@@ -6,6 +6,7 @@
 
 import { Injectable, computed, signal } from '@angular/core';
 import { Track } from '../models';
+import { YT_PREFIX, YouTubeVideo } from './youtube.service';
 
 interface StoredSong {
   id: string;
@@ -16,7 +17,10 @@ interface StoredSong {
   category: string;
   cover: string; // small JPEG data URL, or ''
   addedAt: number;
-  blob: Blob;
+  /** Audio file (for songs added from this device) */
+  blob?: Blob;
+  /** YouTube video id (for songs added from a YouTube link) */
+  youtubeId?: string;
 }
 
 const DB_NAME = 'vibeonly-device';
@@ -80,6 +84,32 @@ export class DeviceMusicService {
     return added;
   }
 
+  /** Saves YouTube songs (from pasted links); returns how many were new */
+  async addYouTube(videos: YouTubeVideo[], category: string): Promise<number> {
+    const existing = new Set(this.tracks().map((t) => t.audio));
+    let added = 0;
+    let t = Date.now();
+    for (const v of videos) {
+      if (existing.has(`${YT_PREFIX}${v.id}`)) continue;
+      const song: StoredSong = {
+        id: `yt${v.id}`,
+        name: v.title,
+        artist: v.artist,
+        album: 'YouTube',
+        duration: v.duration || 0,
+        category,
+        cover: v.thumb,
+        // Keep playlist order when listing newest-first
+        addedAt: t--,
+        youtubeId: v.id,
+      };
+      await this.tx('readwrite', (s) => s.put(song));
+      added++;
+    }
+    await this.refresh();
+    return added;
+  }
+
   async remove(id: string): Promise<void> {
     await this.tx('readwrite', (s) => s.delete(id));
     const url = this.urls.get(id);
@@ -101,7 +131,7 @@ export class DeviceMusicService {
     const cached = this.urls.get(id);
     if (cached) return cached;
     const song = await this.get(id);
-    if (!song) return null;
+    if (!song?.blob) return null;
     const url = URL.createObjectURL(song.blob);
     this.urls.set(id, url);
     return url;
@@ -132,13 +162,14 @@ export class DeviceMusicService {
       album_id: '',
       album_image: s.cover,
       duration: s.duration,
-      audio: `${DEVICE_PREFIX}${s.id}`,
+      audio: s.youtubeId ? `${YT_PREFIX}${s.youtubeId}` : `${DEVICE_PREFIX}${s.id}`,
       audiodownload: '',
       image: s.cover,
       releasedate: new Date(s.addedAt).toISOString(),
       position: 1,
       category: s.category,
-      provider: 'device',
+      provider: s.youtubeId ? 'youtube' : 'device',
+      externalUrl: s.youtubeId ? `https://www.youtube.com/watch?v=${s.youtubeId}` : undefined,
     };
   }
 

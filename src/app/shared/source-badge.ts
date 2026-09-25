@@ -9,6 +9,7 @@ export function sourceMeta(track: Track): { icon: string; label: string } {
     case 'radio': return { icon: 'bi-broadcast', label: 'Live radio' };
     case 'supabase': return { icon: 'bi-cloud-check-fill', label: 'Your upload' };
     case 'device': return { icon: 'bi-phone', label: 'On this device' };
+    case 'youtube': return { icon: 'bi-youtube', label: 'Full song · YouTube' };
     default: return { icon: 'bi-music-note', label: track.provider || '' };
   }
 }

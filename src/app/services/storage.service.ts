@@ -17,6 +17,7 @@ const KEYS = {
   ARTISTS: 'vo_followed_artists',
   SEARCHES: 'vo_recent_searches',
   HIDE_PREVIEWS: 'vo_hide_previews',
+  AUTO_FULL: 'vo_auto_full',
 } as const;
 
 export interface PlayerSession {
@@ -184,6 +185,15 @@ export class StorageService {
 
   setHidePreviews(hide: boolean): void {
     this.setItem(KEYS.HIDE_PREVIEWS, hide);
+  }
+
+  /** Play previews in full from YouTube (default on) */
+  getAutoFull(): boolean {
+    return this.getItem<boolean>(KEYS.AUTO_FULL) !== false;
+  }
+
+  setAutoFull(on: boolean): void {
+    this.setItem(KEYS.AUTO_FULL, on);
   }
 
   // ── Recent searches ──
