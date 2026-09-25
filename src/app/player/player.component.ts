@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Music Player Component
+// YakBeats — Music Player Component
 // ============================================
 
 import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';

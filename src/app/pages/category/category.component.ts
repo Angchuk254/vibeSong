@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Category Detail Component
+// YakBeats — Category Detail Component
 // ============================================
 
 import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';

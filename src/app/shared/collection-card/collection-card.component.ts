@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Playlist / Album Card
+// YakBeats — Playlist / Album Card
 // ============================================
 
 import { Component, input } from '@angular/core';

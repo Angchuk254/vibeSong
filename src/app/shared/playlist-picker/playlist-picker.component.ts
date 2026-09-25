@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Add-to-playlist sheet
+// YakBeats — Add-to-playlist sheet
 // ============================================
 
 import { Component, HostListener, computed, inject, signal } from '@angular/core';

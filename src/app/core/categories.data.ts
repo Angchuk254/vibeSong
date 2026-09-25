@@ -1,7 +1,7 @@
 import { MusicCategory } from '../models';
 
 // ============================================
-// vibeOnly — Music Categories Data
+// YakBeats — Music Categories Data
 // ============================================
 // Each category has a recipe saying which sources it pulls from.
 

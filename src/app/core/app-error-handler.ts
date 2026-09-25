@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Global error handler
+// YakBeats — Global error handler
 // ============================================
 // Keeps one unexpected error from leaving a blank or frozen screen: it's
 // logged, and the user sees a short message instead.
@@ -12,7 +12,7 @@ export class AppErrorHandler implements ErrorHandler {
   private lastShown = 0;
 
   handleError(error: unknown): void {
-    console.error('[vibeOnly] Unexpected error:', error);
+    console.error('[YakBeats] Unexpected error:', error);
     const msg = String((error as Error)?.message || error);
     // A new version was deployed and an old lazy chunk is gone: reload once
     if (/Loading chunk|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(msg)) {

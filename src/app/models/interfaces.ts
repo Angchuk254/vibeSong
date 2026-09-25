@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Core Data Models
+// YakBeats — Core Data Models
 // ============================================
 
 /** Represents a music track from Jamendo or other sources */

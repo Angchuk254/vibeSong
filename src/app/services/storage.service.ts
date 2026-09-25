@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Local Storage Service
+// YakBeats — Local Storage Service
 // ============================================
 
 import { Injectable } from '@angular/core';
@@ -235,7 +235,7 @@ export class StorageService {
   /** Everything personal, for export/import */
   exportLibrary(): string {
     return JSON.stringify({
-      app: 'vibeOnly',
+      app: 'YakBeats',
       version: 1,
       exportedAt: new Date().toISOString(),
       favorites: this.getFavorites(),
@@ -247,7 +247,7 @@ export class StorageService {
   /** Merges a backup into the current library; returns what was added */
   importLibrary(json: string): { songs: number; playlists: number; artists: number } {
     const data = JSON.parse(json);
-    if (!data || typeof data !== 'object') throw new Error('Not a vibeOnly backup');
+    if (!data || typeof data !== 'object') throw new Error('Not a YakBeats backup');
     const result = { songs: 0, playlists: 0, artists: 0 };
 
     const favs = this.getFavorites();

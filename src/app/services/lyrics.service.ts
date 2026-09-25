@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Lyrics Service (LRCLIB, free & keyless)
+// YakBeats — Lyrics Service (LRCLIB, free & keyless)
 // ============================================
 
 import { Injectable, inject } from '@angular/core';

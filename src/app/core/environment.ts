@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Environment
+// YakBeats — Environment
 // ============================================
 // The app works with no keys at all: every music source it uses by default
 // (Audius, iTunes, Internet Archive, Radio Browser, LRCLIB lyrics) is free and

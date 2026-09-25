@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Public Playlist / Album Page
+// YakBeats — Public Playlist / Album Page
 // ============================================
 
 import { Component, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';

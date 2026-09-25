@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Songs on this device (IndexedDB)
+// YakBeats — Songs on this device (IndexedDB)
 // ============================================
 // Lets you add your own audio files (e.g. Ladakhi or Spiti songs that no free
 // catalog carries). Files stay in this browser; nothing is uploaded anywhere.

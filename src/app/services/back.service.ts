@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Phone back button
+// YakBeats — Phone back button
 // ============================================
 // Makes the Android back button / back gesture behave like a native app:
 // it closes whatever is open on top (full-screen player, sheets, menus)

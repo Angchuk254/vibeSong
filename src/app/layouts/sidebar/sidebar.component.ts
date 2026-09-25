@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Sidebar Navigation (Desktop)
+// YakBeats — Sidebar Navigation (Desktop)
 // ============================================
 
 import { Component, inject } from '@angular/core';
@@ -13,10 +13,8 @@ import { ThemeService, LibraryService } from '../../services';
   template: `
     <aside class="sidebar">
       <div class="sidebar__brand">
-        <div class="sidebar__logo">
-          <i class="bi bi-soundwave"></i>
-        </div>
-        <h1 class="sidebar__title">vibe<span>Only</span></h1>
+        <img class="sidebar__logo-img" src="icons/icon-96x96.png" alt="" width="40" height="40" />
+        <h1 class="sidebar__title">Yak<span>Beats</span></h1>
       </div>
 
       <nav class="sidebar__nav">
@@ -88,17 +86,12 @@ import { ThemeService, LibraryService } from '../../services';
       padding: 0 8px;
     }
 
-    .sidebar__logo {
+    .sidebar__logo-img {
       width: 40px;
       height: 40px;
-      border-radius: var(--vo-radius-md);
-      background: var(--vo-gradient-accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
-      color: #fff;
+      border-radius: 12px;
       box-shadow: var(--vo-shadow-glow);
+      flex-shrink: 0;
     }
 
     .sidebar__title {

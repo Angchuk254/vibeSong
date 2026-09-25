@@ -37,7 +37,7 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
 
         <!-- Share -->
         <div class="settings-section">
-          <h2 class="section-title">Share vibeOnly</h2>
+          <h2 class="section-title">Share YakBeats</h2>
           <div class="settings-card glass-panel">
             <app-share-card></app-share-card>
           </div>
@@ -180,7 +180,7 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
               </div>
               <div class="setting-label">
                 <h3>App Version</h3>
-                <p>VibeOnly PWA Stable Release</p>
+                <p>YakBeats PWA Stable Release</p>
               </div>
               <span class="badge">v1.0.5</span>
             </div>

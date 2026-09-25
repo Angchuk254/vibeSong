@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Audio Player Service
+// YakBeats — Audio Player Service
 // ============================================
 
 import { Injectable, signal, computed, inject, effect } from '@angular/core';

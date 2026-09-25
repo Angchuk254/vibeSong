@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Track Card Component
+// YakBeats — Track Card Component
 // ============================================
 
 import { Component, input, output, inject } from '@angular/core';

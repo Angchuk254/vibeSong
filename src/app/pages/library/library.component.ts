@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Library Component
+// YakBeats — Library Component
 // ============================================
 
 import { Component, ElementRef, ViewChild, inject, signal, computed, OnInit } from '@angular/core';
@@ -890,7 +890,7 @@ export class LibraryComponent implements OnInit {
         `Imported ${r.songs} liked songs, ${r.playlists} playlists, ${r.artists} artists and ${r.mySongs} YouTube songs.`
       );
     } catch {
-      this.importMessage.set("That file isn't a vibeOnly backup.");
+      this.importMessage.set("That file isn't a YakBeats backup.");
     }
     input.value = '';
     setTimeout(() => this.importMessage.set(''), 8000);

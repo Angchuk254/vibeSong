@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — YouTube video window
+// YakBeats — YouTube video window
 // ============================================
 // Hosts the official YouTube player. YouTube requires the player to stay
 // visible (at least 200px) while it plays, so it sits in the album-art spot of

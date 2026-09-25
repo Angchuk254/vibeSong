@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Track "more" menu
+// YakBeats — Track "more" menu
 // ============================================
 
 import { Component, ElementRef, HostListener, inject, input, output, signal } from '@angular/core';

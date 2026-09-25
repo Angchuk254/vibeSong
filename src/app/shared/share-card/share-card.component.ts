@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Share the app (QR code + link)
+// YakBeats — Share the app (QR code + link)
 // ============================================
 // The QR code is generated on-device (qrcode-generator), so it works offline
 // and doesn't depend on any external service.
@@ -12,10 +12,10 @@ import { notify } from '../../services/storage.service';
   standalone: true,
   template: `
     <div class="share">
-      <div class="share__qr" aria-label="QR code for the vibeOnly link">
+      <div class="share__qr" aria-label="QR code for the YakBeats link">
         @if (path()) {
           <svg [attr.viewBox]="'0 0 ' + size() + ' ' + size()" shape-rendering="crispEdges" role="img">
-            <title>Scan to open vibeOnly</title>
+            <title>Scan to open YakBeats</title>
             <rect [attr.width]="size()" [attr.height]="size()" fill="#fff" />
             <path [attr.d]="path()" fill="#0a0a1a" />
           </svg>
@@ -26,7 +26,7 @@ import { notify } from '../../services/storage.service';
 
       <div class="share__info">
         <h3>Scan to vibe together</h3>
-        <p>Point any phone camera at the code to open vibeOnly — free, no ads, no login.</p>
+        <p>Point any phone camera at the code to open YakBeats — free, no ads, no login.</p>
         <code class="share__url">{{ displayUrl }}</code>
         <div class="share__actions">
           @if (canShare) {
@@ -140,8 +140,8 @@ export class ShareCardComponent implements OnInit {
   async share(): Promise<void> {
     try {
       await navigator.share({
-        title: 'vibeOnly',
-        text: 'Free, ad-free music with no login — full songs, Himalayan radio, lyrics and more 🎶',
+        title: 'YakBeats',
+        text: 'YakBeats 🐃🎧 — free, ad-free music with no login: full songs, Himalayan radio, lyrics and more',
         url: this.url,
       });
     } catch {
@@ -188,14 +188,14 @@ export class ShareCardComponent implements OnInit {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#6C5CE7';
     ctx.font = 'bold 34px system-ui, sans-serif';
-    ctx.fillText('vibeOnly', canvas.width / 2, qrSize + pad + 50);
+    ctx.fillText('YakBeats', canvas.width / 2, qrSize + pad + 50);
     ctx.fillStyle = '#555';
     ctx.font = '18px system-ui, sans-serif';
     ctx.fillText(this.displayUrl, canvas.width / 2, qrSize + pad + 80);
 
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = 'vibeonly-qr.png';
+    a.download = 'yakbeats-qr.png';
     a.click();
   }
 }

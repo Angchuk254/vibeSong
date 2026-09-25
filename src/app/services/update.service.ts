@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — App updates (service worker)
+// YakBeats — App updates (service worker)
 // ============================================
 // The app works offline through a service worker, which means an old version
 // can linger after a new deploy. This checks for updates regularly and lets

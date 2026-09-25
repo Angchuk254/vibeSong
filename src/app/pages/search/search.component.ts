@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Search Component
+// YakBeats — Search Component
 // ============================================
 
 import { Component, inject, signal, computed, OnDestroy } from '@angular/core';

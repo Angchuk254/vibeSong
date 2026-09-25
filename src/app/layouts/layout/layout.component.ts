@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Main Layout Component
+// YakBeats — Main Layout Component
 // ============================================
 
 import { Component } from '@angular/core';

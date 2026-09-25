@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Playlist Detail Component
+// YakBeats — Playlist Detail Component
 // ============================================
 
 import { Component, OnInit, computed, inject, input, signal } from '@angular/core';

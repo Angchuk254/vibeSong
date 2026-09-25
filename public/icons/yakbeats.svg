@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6C5CE7"/>
+      <stop offset="1" stop-color="#00B8C9"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1f5c"/>
+      <stop offset="1" stop-color="#140f33"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(256 262) scale(0.88) translate(-256 -262)">
+  <!-- soft glow -->
+  <circle cx="256" cy="270" r="170" fill="#ffffff" opacity="0.08"/>
+  <!-- horns -->
+  <path d="M188 196 C 140 196 104 164 104 116 C 126 146 156 160 196 164 Z" fill="#F5E6C8"/>
+  <path d="M324 196 C 372 196 408 164 408 116 C 386 146 356 160 316 164 Z" fill="#F5E6C8"/>
+  <!-- head -->
+  <path d="M176 188 Q 256 140 336 188 Q 352 250 330 312 Q 308 372 256 388 Q 204 372 182 312 Q 160 250 176 188 Z" fill="url(#fur)"/>
+  <!-- shaggy fringe -->
+  <path d="M178 196 Q 200 176 222 200 Q 238 172 256 200 Q 274 172 290 200 Q 312 176 334 196 Q 324 236 302 226 Q 290 250 272 232 Q 256 254 240 232 Q 222 250 210 226 Q 188 236 178 196 Z" fill="#3b2d7a"/>
+  <!-- eyes -->
+  <circle cx="222" cy="262" r="10" fill="#ffffff"/>
+  <circle cx="290" cy="262" r="10" fill="#ffffff"/>
+  <circle cx="224" cy="264" r="5" fill="#140f33"/>
+  <circle cx="292" cy="264" r="5" fill="#140f33"/>
+  <!-- muzzle -->
+  <ellipse cx="256" cy="338" rx="46" ry="34" fill="#4a3a8f"/>
+  <ellipse cx="240" cy="338" rx="7" ry="9" fill="#140f33"/>
+  <ellipse cx="272" cy="338" rx="7" ry="9" fill="#140f33"/>
+  <!-- headphones -->
+  <path d="M166 262 C 166 170 346 170 346 262" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round"/>
+  <rect x="142" y="240" width="40" height="74" rx="18" fill="#ffffff"/>
+  <rect x="330" y="240" width="40" height="74" rx="18" fill="#ffffff"/>
+  <rect x="152" y="252" width="20" height="50" rx="10" fill="#6C5CE7"/>
+  <rect x="340" y="252" width="20" height="50" rx="10" fill="#00B8C9"/>
+  <!-- beat waves -->
+  <path d="M112 250 q -14 27 0 54" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.85"/>
+  <path d="M90 236 q -24 41 0 82" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.5"/>
+  <path d="M400 250 q 14 27 0 54" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.85"/>
+  <path d="M422 236 q 24 41 0 82" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.5"/>
+  </g>
+</svg>

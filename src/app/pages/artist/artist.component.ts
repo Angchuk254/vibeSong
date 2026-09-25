@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Artist Page
+// YakBeats — Artist Page
 // ============================================
 
 import { Component, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';

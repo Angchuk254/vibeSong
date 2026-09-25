@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Location (for the Home greeting)
+// YakBeats — Location (for the Home greeting)
 // ============================================
 // Fully automatic, in this order:
 // 1. Device location (GPS) — asked for automatically on app start while the

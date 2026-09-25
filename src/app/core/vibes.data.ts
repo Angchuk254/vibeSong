@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Daily vibe messages
+// YakBeats — Daily vibe messages
 // ============================================
 // One set per weekday (0 = Sunday). A message is picked per day, so it stays
 // the same all day and changes tomorrow. {place} becomes the user's city (or

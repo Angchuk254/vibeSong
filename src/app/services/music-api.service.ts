@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Music API Service
+// YakBeats — Music API Service
 // ============================================
 
 import { Injectable, inject, signal } from '@angular/core';

@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Duration Pipe
+// YakBeats — Duration Pipe
 // ============================================
 
 import { Pipe, PipeTransform } from '@angular/core';

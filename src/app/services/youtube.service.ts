@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — YouTube (official embed + optional Data API search)
+// YakBeats — YouTube (official embed + optional Data API search)
 // ============================================
 // Full songs are played through YouTube's official IFrame player, which any
 // site may embed. Without a key you can paste song/playlist links; with a

@@ -8,7 +8,7 @@ import { UpdateService } from '../../services/update.service';
     @if (updates.updateReady()) {
       <div class="update" role="status">
         <i class="bi bi-stars"></i>
-        <span>A new version of vibeOnly is ready</span>
+        <span>A new version of YakBeats is ready</span>
         <button (click)="updates.applyUpdate()">Update</button>
       </div>
     }

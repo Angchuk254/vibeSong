@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Bottom Navigation Component
+// YakBeats — Bottom Navigation Component
 // ============================================
 
 import { Component } from '@angular/core';

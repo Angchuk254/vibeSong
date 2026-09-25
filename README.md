@@ -1,4 +1,4 @@
-# vibeOnly (VibeSong)
+# YakBeats 🐃🎧
 
 A free, ad-free, no-login music app in the style of Spotify. It runs entirely in the browser and uses only free, keyless music sources.
 
@@ -32,7 +32,7 @@ Everything personal is stored in your browser's localStorage. There are no accou
 ## Publish it (GitHub Pages)
 
 `.github/workflows/deploy-pages.yml` builds the app and deploys it on every push to `clean-Web-React`.
-One-time setup: **Settings → Pages → Source: GitHub Actions**. The site is then live at `https://<user>.github.io/vibeSong/`.
+One-time setup: **Settings → Pages → Source: GitHub Actions**. The site is then live at `https://<user>.github.io/yakbeats/`.
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
 

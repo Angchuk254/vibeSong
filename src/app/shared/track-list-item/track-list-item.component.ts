@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Track List Item Component
+// YakBeats — Track List Item Component
 // ============================================
 
 import { Component, input, output, inject } from '@angular/core';

@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Home Page Component
+// YakBeats — Home Page Component
 // ============================================
 
 import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';

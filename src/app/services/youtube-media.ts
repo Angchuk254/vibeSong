@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — YouTube playback engine
+// YakBeats — YouTube playback engine
 // ============================================
 // Wraps YouTube's official IFrame player so it can be driven like an
 // HTMLAudioElement: play()/pause()/currentTime/duration/volume plus the same
