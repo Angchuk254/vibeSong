@@ -26,7 +26,7 @@ export class RadioProvider implements MusicProvider {
   getTracksByTag(tag: string, limit = 10): Observable<Track[]> {
     const regionalTags = [
       'ladakhi', 'spiti', 'bhutan', 'himalayan', 'pahadi', 'uttarakhand', 'himachali', 'bollywood', 'punjabi', 'hindi', 'nepal', 'india', 'tibet', 'pakistan',
-      'lofi', 'jazz', 'zen', 'chillout', '80s', 'rock', 'classical', 'electronic'
+      'lofi', 'jazz', 'zen', 'chillout', '80s', 'rock', 'classical', 'electronic', 'retro-hindi', 'sufi', 'hiphop', 'kpop'
     ];
     if (regionalTags.includes(tag.toLowerCase())) {
       return this.getRegionalTracks(tag, limit);
@@ -71,17 +71,38 @@ export class RadioProvider implements MusicProvider {
         ...tags('tibetan', 'himalayan'),
       ],
       tibet: [...tags('tibetan', 'buddhist', 'mantra'), q({ name: 'tibet' })],
-      uttarakhand: [...tags('uttarakhand', 'garhwali', 'pahadi'), q({ name: 'uttarakhand' })],
-      himachali: [...tags('himachal', 'pahadi'), q({ name: 'himachal' }), q({ name: 'shimla' })],
-      ladakhi: [q({ name: 'leh' }), q({ name: 'ladakh' }), q({ name: 'kargil' }), ...tags('ladakh', 'ladakhi')],
-      spiti: [q({ name: 'spiti' }), q({ name: 'kinnaur' }), q({ name: 'lahaul' }), ...tags('himachal')],
-      pahadi: tags('pahadi', 'dogri', 'himachal', 'uttarakhand'),
+      // Few stations are tagged this precisely, so each plan ends with a broader
+      // Indian folk search to keep the page from coming up empty.
+      uttarakhand: [
+        ...tags('uttarakhand', 'garhwali', 'kumaoni', 'pahadi'),
+        q({ name: 'uttarakhand' }), q({ name: 'garhwal' }), q({ name: 'dehradun' }), q({ name: 'kumaon' }),
+        q({ countrycode: 'IN', tag: 'folk' }),
+      ],
+      himachali: [
+        ...tags('himachal', 'himachali', 'pahadi'),
+        q({ name: 'himachal' }), q({ name: 'shimla' }), q({ name: 'kullu' }), q({ name: 'dharamshala' }),
+        q({ countrycode: 'IN', tag: 'folk' }),
+      ],
+      ladakhi: [
+        q({ name: 'leh' }), q({ name: 'ladakh' }), q({ name: 'kargil' }), ...tags('ladakh', 'ladakhi'),
+        q({ name: 'akashvani leh' }), ...tags('tibetan', 'himalayan'),
+      ],
+      spiti: [q({ name: 'spiti' }), q({ name: 'kinnaur' }), q({ name: 'lahaul' }), ...tags('himachal', 'himalayan')],
+      pahadi: [
+        ...tags('pahadi', 'pahari', 'garhwali', 'himachal', 'uttarakhand', 'dogri'),
+        q({ name: 'pahadi' }), q({ name: 'himachal' }), q({ name: 'uttarakhand' }), q({ name: 'jammu' }),
+        q({ countrycode: 'IN', tag: 'folk' }),
+      ],
+      'retro-hindi': [...tags('old hindi', 'retro bollywood', 'old bollywood', 'hindi classics'), q({ name: 'purani' }), q({ name: 'old hindi' }), q({ countrycode: 'IN', tag: 'oldies' })],
+      sufi: tags('sufi', 'qawwali', 'ghazal', 'ghazals'),
+      hiphop: tags('hip hop', 'hiphop', 'rap', 'rnb'),
+      kpop: tags('kpop', 'k-pop', 'jpop', 'korean'),
       bollywood: [...tags('bollywood', 'hindi'), q({ name: 'mirchi' })],
       punjabi: [q({ language: 'punjabi' }), ...tags('punjabi', 'bhangra')],
       hindi: [q({ language: 'hindi' }), ...tags('bollywood', 'hindi')],
       lofi: tags('lofi', 'chill', 'study'),
       jazz: tags('jazz', 'smooth jazz'),
-      zen: tags('meditation', 'zen', 'ambient'),
+      zen: tags('chillout', 'ambient', 'meditation', 'zen', 'downtempo'),
       '80s': tags('80s', 'retro'),
       rock: tags('rock', 'classic rock'),
       electronic: tags('electronic', 'house', 'techno'),
