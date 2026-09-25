@@ -107,6 +107,9 @@ interface EditableTrack {
                       @if (editingId() === track.id) {
                         <select [(ngModel)]="editBuffer.category" class="edit-input select-edit">
                           <option value="Ladakhi">Ladakhi</option>
+                          <option value="Spiti">Spiti / Kinnauri</option>
+                          <option value="Bhutanese">Bhutanese</option>
+                          <option value="Nepali">Nepali</option>
                           <option value="Pahadi">Pahadi</option>
                           <option value="Tibetan">Tibetan</option>
                           <option value="Hindi">Hindi</option>

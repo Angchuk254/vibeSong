@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Skeleton Loader Component
+// YakBeats — Skeleton Loader Component
 // ============================================
 
 import { Component, input } from '@angular/core';

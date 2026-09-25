@@ -1,10 +1,13 @@
 // ============================================
-// vibeOnly — Music Player Component
+// YakBeats — Music Player Component
 // ============================================
 
-import { Component, inject, signal } from '@angular/core';
-import { PlayerService, StorageService } from '../services';
+import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { PlayerService, StorageService, LibraryService, LyricsService, MusicApiService } from '../services';
+import { Lyrics } from '../services/lyrics.service';
+import { BackService } from '../services/back.service';
 import { TrackListItemComponent } from '../shared/track-list-item/track-list-item.component';
+import { sourceMeta } from '../shared/source-badge';
 import { Track } from '../models';
 
 @Component({
@@ -12,26 +15,39 @@ import { Track } from '../models';
   standalone: true,
   imports: [TrackListItemComponent],
   template: `
-    @if (player.isPlayerVisible() && player.currentTrack()) {
+    @if (player.notice()) {
+      <div class="player__toast" role="status" aria-live="polite">{{ player.notice() }}</div>
+    }
+
+    @if (player.isPlayerVisible() && player.currentTrack(); as track) {
       <div class="player" [class.player--expanded]="isExpanded()">
         <!-- Mini Player (default) -->
-        <div class="player__mini" (click)="toggleExpand()">
+        <div class="player__mini" tabindex="0" role="button" aria-label="Open player" (click)="toggleExpand()" (keydown.enter)="toggleExpand()">
           <div class="player__progress-bar-mini">
             <div class="player__progress-fill-mini"
-                 [style.width.%]="player.progress()">
+                 [class.player__progress-fill-mini--live]="player.isLive()"
+                 [style.width.%]="player.isLive() ? 100 : player.progress()">
             </div>
           </div>
 
           <div class="player__mini-content">
             <img class="player__mini-img"
-                 [src]="player.currentTrack()!.album_image || player.currentTrack()!.image || 'icons/icon-192x192.png'"
-                 [alt]="player.currentTrack()!.name" />
+                 [src]="art(track)"
+                 [alt]="track.name" />
             <div class="player__mini-info">
-              <p class="player__mini-title">{{ player.currentTrack()!.name }}</p>
-              <p class="player__mini-artist">{{ player.currentTrack()!.artist_name }}</p>
+              <p class="player__mini-title">{{ track.name }}</p>
+              <p class="player__mini-artist">
+                @if (player.isLive()) { <span class="vo-badge vo-badge--live">LIVE</span> }
+                @else if (track.isPreview) { <span class="vo-badge">PREVIEW</span> }
+                <span class="player__mini-artist-name">{{ track.artist_name }}</span>
+              </p>
             </div>
-            <div class="player__mini-controls" (click)="$event.stopPropagation()">
-              <button class="player__ctrl-btn" (click)="player.playPrevious()" aria-label="Previous">
+            <div class="player__mini-controls" role="group" tabindex="-1" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+              <button class="player__ctrl-btn player__ctrl-btn--sm player__mini-fav" (click)="player.toggleFavorite(track)"
+                      [attr.aria-label]="player.isFavorite(track.id) ? 'Remove from Liked Songs' : 'Save to Liked Songs'">
+                <i class="bi" [class.bi-heart-fill]="player.isFavorite(track.id)" [class.bi-heart]="!player.isFavorite(track.id)"></i>
+              </button>
+              <button class="player__ctrl-btn vo-desktop-only" (click)="player.playPrevious()" aria-label="Previous">
                 <i class="bi bi-skip-start-fill"></i>
               </button>
               <button class="player__ctrl-btn player__ctrl-btn--play" (click)="player.togglePlay()" aria-label="Play/Pause">
@@ -51,60 +67,97 @@ import { Track } from '../models';
         <!-- Expanded Player -->
         @if (isExpanded()) {
           <div class="player__expanded">
+            <div class="player__backdrop" [style.background-image]="'url(' + art(track) + ')'"></div>
+
             <div class="player__expanded-header">
-              <button class="player__collapse-btn" (click)="toggleExpand()">
+              <button class="player__collapse-btn" (click)="toggleExpand()" aria-label="Minimise player">
                 <i class="bi bi-chevron-down"></i>
               </button>
-              <span class="player__expanded-label">Now Playing</span>
-              <button class="player__fav-btn" (click)="toggleFavorite()">
-                <i class="bi" [class.bi-heart-fill]="isFav()" [class.bi-heart]="!isFav()"></i>
-              </button>
+              <span class="player__expanded-label">{{ source(track).label }}</span>
+              <div class="player__header-actions">
+                <button class="player__collapse-btn" (click)="library.openPicker(track)" aria-label="Add to playlist" title="Add to playlist">
+                  <i class="bi bi-plus-square"></i>
+                </button>
+                <button class="player__fav-btn" (click)="player.toggleFavorite(track)"
+                        [attr.aria-label]="player.isFavorite(track.id) ? 'Remove from Liked Songs' : 'Save to Liked Songs'">
+                  <i class="bi" [class.bi-heart-fill]="player.isFavorite(track.id)" [class.bi-heart]="!player.isFavorite(track.id)"></i>
+                </button>
+              </div>
             </div>
 
-            <div class="player__expanded-art">
-              <img [src]="player.currentTrack()!.album_image || player.currentTrack()!.image || 'icons/icon-192x192.png'"
-                   [alt]="player.currentTrack()!.name"
-                   class="player__album-art" />
-            </div>
+            @if (player.mode() === 'youtube') {
+              <!-- The YouTube video window positions itself over this slot -->
+              <div class="player__video-slot"></div>
+            } @else {
+              <div class="player__expanded-art" [class.player__expanded-art--playing]="player.isPlaying()">
+                <img [src]="art(track)"
+                     [alt]="track.name"
+                     class="player__album-art" />
+              </div>
+            }
 
             <div class="player__expanded-info">
-              <h2 class="player__track-name">{{ player.currentTrack()!.name }}</h2>
-              <p class="player__artist-name">{{ player.currentTrack()!.artist_name }}</p>
+              <h2 class="player__track-name" [title]="track.name">{{ track.name }}</h2>
+              <p class="player__artist-name">
+                @if (track.artistRef) {
+                  <a class="artist-link" (click)="openArtist(track.artistRef)" (keydown.enter)="openArtist(track.artistRef)" tabindex="0">{{ track.artist_name }}</a>
+                } @else {
+                  {{ track.artist_name }}
+                }
+                @if (track.genre) { <span class="player__genre">&nbsp;· {{ track.genre }}</span> }
+              </p>
+              @if (player.playingFullVersion()) {
+                <p class="player__hint player__hint--full"><i class="bi bi-youtube"></i> Playing the full song from YouTube</p>
+              } @else if (track.isPreview) {
+                <p class="player__hint"><i class="bi bi-info-circle"></i> 30-second preview — add a free YouTube key in Settings to hear full songs here</p>
+                <div class="player__full">
+                  <a class="player__chip" [href]="youtube(track)" target="_blank" rel="noopener"><i class="bi bi-youtube"></i> Full song on YouTube</a>
+                  @if (track.externalUrl) {
+                    <a class="player__chip" [href]="track.externalUrl" target="_blank" rel="noopener"><i class="bi bi-apple"></i> Apple Music</a>
+                  }
+                </div>
+              }
             </div>
 
             <div class="player__seekbar">
-              <input type="range" class="player__range"
-                     [value]="player.progress()"
-                     (input)="onSeek($event)"
-                     min="0" max="100" step="0.1" />
-              <div class="player__times">
-                <span>{{ player.formattedCurrentTime() }}</span>
-                <span>{{ player.formattedDuration() }}</span>
-              </div>
+              @if (player.isLive()) {
+                <div class="player__live-bar"><span class="vo-badge vo-badge--live">LIVE</span> Streaming live radio</div>
+              } @else {
+                <input type="range" class="player__range"
+                       [value]="player.progress()"
+                       [style.--fill.%]="player.progress()"
+                       (input)="onSeek($event)"
+                       aria-label="Seek"
+                       min="0" max="100" step="0.1" />
+                <div class="player__times">
+                  <span>{{ player.formattedCurrentTime() }}</span>
+                  <span>{{ player.formattedDuration() }}</span>
+                </div>
+              }
             </div>
 
             <div class="player__expanded-controls">
               <button class="player__ctrl-btn player__ctrl-btn--sm"
                       [class.active]="player.isShuffled()"
-                      (click)="player.toggleShuffle()" aria-label="Shuffle">
+                      (click)="player.toggleShuffle()" aria-label="Shuffle" title="Shuffle (S)">
                 <i class="bi bi-shuffle"></i>
               </button>
-              <button class="player__ctrl-btn" (click)="player.playPrevious()" aria-label="Previous">
+              <button class="player__ctrl-btn" (click)="player.playPrevious()" aria-label="Previous" title="Previous (Shift+←)">
                 <i class="bi bi-skip-start-fill"></i>
               </button>
-              <button class="player__ctrl-btn player__ctrl-btn--play-lg" (click)="player.togglePlay()" aria-label="Play/Pause">
+              <button class="player__ctrl-btn player__ctrl-btn--play-lg" (click)="player.togglePlay()" aria-label="Play/Pause" title="Play/Pause (Space)">
                 @if (player.isLoading()) {
                   <i class="bi bi-arrow-repeat player__spin"></i>
                 } @else {
                   <i class="bi" [class.bi-pause-fill]="player.isPlaying()" [class.bi-play-fill]="!player.isPlaying()"></i>
                 }
               </button>
-              <button class="player__ctrl-btn" (click)="player.playNext()" aria-label="Next">
+              <button class="player__ctrl-btn" (click)="player.playNext()" aria-label="Next" title="Next (Shift+→)">
                 <i class="bi bi-skip-end-fill"></i>
               </button>
               <button class="player__ctrl-btn player__ctrl-btn--sm"
                       [class.active]="player.repeatMode() !== 'none'"
-                      (click)="player.cycleRepeat()" aria-label="Repeat">
+                      (click)="player.cycleRepeat()" aria-label="Repeat" title="Repeat (R)">
                 @if (player.repeatMode() === 'one') {
                   <i class="bi bi-repeat-1"></i>
                 } @else {
@@ -113,28 +166,116 @@ import { Track } from '../models';
               </button>
             </div>
 
-            <!-- Volume (desktop only) -->
-            <div class="player__volume vo-desktop-only">
-              <button class="player__ctrl-btn player__ctrl-btn--sm" (click)="player.toggleMute()">
-                <i class="bi" [class.bi-volume-up-fill]="!player.isMuted() && player.volume() > 0.5"
-                   [class.bi-volume-down-fill]="!player.isMuted() && player.volume() <= 0.5 && player.volume() > 0"
-                   [class.bi-volume-mute-fill]="player.isMuted() || player.volume() === 0"></i>
+            <div class="player__extras">
+              <button class="player__chip" [class.active]="player.autoplay()" (click)="player.toggleAutoplay()"
+                      title="Keep playing similar songs when the queue ends">
+                <i class="bi bi-infinity"></i> Autoplay {{ player.autoplay() ? 'on' : 'off' }}
               </button>
-              <input type="range" class="player__volume-range"
-                     [value]="player.isMuted() ? 0 : player.volume() * 100"
-                     (input)="onVolume($event)"
-                     min="0" max="100" step="1" />
-            </div>
-
-            <!-- Recently Played Section -->
-            <div class="player__recent">
-              <h3 class="player__recent-title">Recently Played</h3>
-              <div class="player__recent-list">
-                @for (track of recentTracks(); track $index) {
-                  <app-track-list-item [track]="track" [index]="$index + 1" [trackList]="recentTracks()"></app-track-list-item>
+              <div class="player__sleep">
+                <button class="player__chip" [class.active]="player.sleepAt() !== null" (click)="sleepMenu.set(!sleepMenu())">
+                  <i class="bi bi-moon-stars"></i> {{ sleepLabel() }}
+                </button>
+                @if (sleepMenu()) {
+                  <div class="player__sleep-menu">
+                    @for (m of sleepOptions; track m) {
+                      <button (click)="setSleep(m)">{{ m }} minutes</button>
+                    }
+                    <button (click)="setSleep('track')">End of this song</button>
+                    @if (player.sleepAt() !== null) {
+                      <button class="danger" (click)="setSleep(null)">Turn off</button>
+                    }
+                  </div>
                 }
               </div>
+              <div class="player__volume vo-desktop-only">
+                <button class="player__ctrl-btn player__ctrl-btn--sm" (click)="player.toggleMute()" aria-label="Mute (M)">
+                  <i class="bi" [class.bi-volume-up-fill]="!player.isMuted() && player.volume() > 0.5"
+                     [class.bi-volume-down-fill]="!player.isMuted() && player.volume() <= 0.5 && player.volume() > 0"
+                     [class.bi-volume-mute-fill]="player.isMuted() || player.volume() === 0"></i>
+                </button>
+                <input type="range" class="player__volume-range"
+                       [value]="player.isMuted() ? 0 : player.volume() * 100"
+                       (input)="onVolume($event)"
+                       aria-label="Volume"
+                       min="0" max="100" step="1" />
+              </div>
             </div>
+
+            <!-- Up Next / Recently Played -->
+            <div class="player__recent">
+              <div class="player__tabs">
+                <button [class.active]="panel() === 'queue'" (click)="panel.set('queue')">Up Next ({{ player.upNext().length }})</button>
+                @if (!player.isLive()) {
+                  <button [class.active]="panel() === 'lyrics'" (click)="panel.set('lyrics')">Lyrics</button>
+                }
+                <button [class.active]="panel() === 'recent'" (click)="showRecent()">Recently Played</button>
+                @if (panel() === 'queue' && player.upNext().length > 0) {
+                  <button class="player__clear" (click)="player.clearQueue()">Clear</button>
+                }
+              </div>
+
+              @if (panel() === 'lyrics') {
+                <div class="player__lyrics" [class.player__lyrics--synced]="lyrics()?.synced">
+                  @if (lyricsLoading()) {
+                    <p class="player__empty"><i class="bi bi-arrow-repeat player__spin"></i> Finding lyrics…</p>
+                  } @else if (lyrics()?.instrumental) {
+                    <p class="player__empty">♪ Instrumental ♪</p>
+                  } @else if (lyrics(); as l) {
+                    @for (line of l.lines; track $index; let i = $index) {
+                      <p class="lyric" [class.active]="i === activeLine()" [class.past]="l.synced && i < activeLine()"
+                         [attr.data-line]="i"
+                         [attr.tabindex]="l.synced ? 0 : null"
+                         (click)="l.synced && player.seekToTime(line.time)"
+                         (keydown.enter)="l.synced && player.seekToTime(line.time)">{{ line.text || '♪' }}</p>
+                    }
+                    <p class="player__lyrics-credit">Lyrics from LRCLIB</p>
+                  } @else {
+                    <p class="player__empty">No lyrics found for this song.</p>
+                  }
+                </div>
+              } @else if (panel() === 'queue') {
+                <div class="player__queue">
+                  @for (q of player.upNext(); track q.id; let i = $index) {
+                    <div class="player__q-item">
+                      <button class="player__q-main" (click)="player.playAt(player.queueIndex() + 1 + i)">
+                        <img [src]="art(q)" alt="" loading="lazy" />
+                        <span class="player__q-text">
+                          <span class="player__q-name">{{ q.name }}</span>
+                          <span class="player__q-artist">
+                            @if (q.isPreview) { <span class="vo-badge">PREVIEW</span> }
+                            {{ q.artist_name }}
+                          </span>
+                        </span>
+                      </button>
+                      <button class="player__q-btn" (click)="player.moveInQueue(player.queueIndex() + 1 + i, -1)" [disabled]="i === 0" aria-label="Move up">
+                        <i class="bi bi-chevron-up"></i>
+                      </button>
+                      <button class="player__q-btn" (click)="player.moveInQueue(player.queueIndex() + 1 + i, 1)" [disabled]="i === player.upNext().length - 1" aria-label="Move down">
+                        <i class="bi bi-chevron-down"></i>
+                      </button>
+                      <button class="player__q-btn" (click)="player.removeFromQueue(player.queueIndex() + 1 + i)" aria-label="Remove from queue">
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                  } @empty {
+                    <p class="player__empty">
+                      @if (player.autoplay()) { Queue is empty — Autoplay will pick similar songs next. }
+                      @else { Queue is empty. Use "Add to queue" on any song. }
+                    </p>
+                  }
+                </div>
+              } @else {
+                <div class="player__recent-list">
+                  @for (t of recentTracks(); track t.id) {
+                    <app-track-list-item [track]="t" [index]="$index + 1" [trackList]="recentTracks()"></app-track-list-item>
+                  }
+                </div>
+              }
+            </div>
+
+            <p class="player__shortcuts vo-desktop-only">
+              Space play/pause · ←/→ seek 10s · Shift+←/→ prev/next · ↑/↓ volume · S shuffle · R repeat · L like · M mute
+            </p>
           </div>
         }
       </div>
@@ -145,7 +286,7 @@ import { Track } from '../models';
       position: fixed;
       left: 0;
       right: 0;
-      bottom: var(--vo-bottom-nav-height);
+      bottom: calc(var(--vo-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
       z-index: 1050;
       transition: all var(--vo-transition-slow);
     }
@@ -506,36 +647,479 @@ import { Track } from '../models';
         left: 0;
       }
     }
+
+    // ── Toast ──
+    .player__toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--vo-bottom-nav-height) + var(--vo-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
+      transform: translateX(-50%);
+      z-index: 5000;
+      max-width: calc(100vw - 32px);
+      padding: 10px 18px;
+      border-radius: var(--vo-radius-xl);
+      background: var(--vo-text-primary);
+      color: var(--vo-bg-primary);
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: var(--vo-shadow-md);
+      animation: toastIn 0.2s ease;
+      /* Long messages wrap instead of being cut off on narrow phones */
+      width: max-content;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translate(-50%, 8px); }
+    }
+
+    .player__mini-artist {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .player__mini-fav .bi-heart-fill,
+    .player__fav-btn .bi-heart-fill {
+      color: #ff6b6b;
+    }
+
+    .player__progress-fill-mini--live {
+      background: #e5484d;
+      opacity: 0.6;
+    }
+
+    // ── Expanded extras ──
+    .player__backdrop {
+      position: fixed;
+      inset: -40px;
+      background-size: cover;
+      background-position: center;
+      filter: blur(60px) saturate(1.4);
+      opacity: 0.35;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .player__expanded {
+      isolation: isolate;
+    }
+
+    .player__header-actions {
+      display: flex;
+      align-items: center;
+    }
+
+    .player__expanded-art img {
+      transition: transform 0.4s ease;
+      transform: scale(0.94);
+    }
+
+    .player__expanded-art--playing img {
+      transform: scale(1);
+    }
+
+    .player__genre {
+      color: var(--vo-text-muted);
+    }
+
+    .player__hint {
+      margin: 8px 0 0;
+      font-size: 0.75rem;
+      color: var(--vo-text-muted);
+    }
+
+    .player__range {
+      background: linear-gradient(to right, var(--vo-accent) var(--fill, 0%), var(--vo-bg-input) var(--fill, 0%));
+    }
+
+    .player__live-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--vo-text-secondary);
+      padding: 6px 0;
+    }
+
+    .player__extras {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .player__chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--vo-radius-xl);
+      border: 1px solid var(--vo-border-light);
+      background: var(--vo-bg-input);
+      color: var(--vo-text-secondary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+
+      &.active {
+        color: var(--vo-accent-light);
+        border-color: var(--vo-accent);
+      }
+    }
+
+    .player__sleep {
+      position: relative;
+    }
+
+    .player__sleep-menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      min-width: 170px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      background: var(--vo-bg-card);
+      border: 1px solid var(--vo-border-light);
+      border-radius: var(--vo-radius-md);
+      box-shadow: var(--vo-shadow-lg);
+
+      button {
+        background: none;
+        border: none;
+        text-align: left;
+        padding: 8px 10px;
+        border-radius: var(--vo-radius-sm);
+        color: var(--vo-text-primary);
+        font-size: 0.85rem;
+        cursor: pointer;
+
+        &:hover { background: var(--vo-bg-input); }
+        &.danger { color: #ff6b6b; }
+      }
+    }
+
+    .player__tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+
+      button {
+        background: none;
+        border: none;
+        padding: 6px 12px;
+        border-radius: var(--vo-radius-xl);
+        color: var(--vo-text-secondary);
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+
+        &.active {
+          background: var(--vo-text-primary);
+          color: var(--vo-bg-primary);
+        }
+      }
+
+      .player__clear {
+        margin-left: auto;
+        font-weight: 500;
+        color: var(--vo-text-muted);
+      }
+    }
+
+    .player__queue {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .player__q-item {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      border-radius: var(--vo-radius-md);
+
+      &:hover { background: var(--vo-bg-input); }
+    }
+
+    .player__q-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px;
+      background: none;
+      border: none;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+
+      img {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--vo-radius-sm);
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+    }
+
+    .player__q-text {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .player__q-name,
+    .player__q-artist {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player__q-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--vo-text-primary);
+    }
+
+    .player__q-artist {
+      font-size: 0.75rem;
+      color: var(--vo-text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .player__q-btn {
+      background: none;
+      border: none;
+      color: var(--vo-text-muted);
+      padding: 6px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 0.8rem;
+
+      &:hover:not(:disabled) { color: var(--vo-text-primary); }
+      &:disabled { opacity: 0.25; cursor: default; }
+    }
+
+    .player__empty {
+      color: var(--vo-text-muted);
+      font-size: 0.85rem;
+      padding: 12px 0;
+      margin: 0;
+    }
+
+    .player__shortcuts {
+      margin: 24px 0 8px;
+      font-size: 0.7rem;
+      color: var(--vo-text-muted);
+      text-align: center;
+      max-width: 420px;
+    }
+
+    @media (min-width: 769px) {
+      .player__toast {
+        left: calc(50% + 120px);
+        bottom: calc(var(--vo-player-height) + 16px);
+      }
+    }
+
+    // ── Lyrics ──
+    .player__lyrics {
+      max-height: 55vh;
+      overflow-y: auto;
+      padding: 8px 4px 40px;
+      scrollbar-width: thin;
+      mask-image: linear-gradient(180deg, transparent 0, #000 8%, #000 88%, transparent 100%);
+    }
+
+    .lyric {
+      margin: 0;
+      padding: 6px 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1.45;
+      color: var(--vo-text-secondary);
+      transition: color 0.25s ease, transform 0.25s ease;
+    }
+
+    .player__lyrics--synced .lyric {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--vo-text-muted);
+      cursor: pointer;
+      transform-origin: left center;
+
+      &:hover { color: var(--vo-text-secondary); }
+      &.past { color: var(--vo-text-secondary); opacity: 0.6; }
+      &.active { color: var(--vo-text-primary); transform: scale(1.03); }
+    }
+
+    .player__lyrics-credit {
+      margin-top: 24px;
+      font-size: 0.7rem;
+      color: var(--vo-text-muted);
+    }
+
+    .player__full {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 10px;
+
+      a { text-decoration: none; }
+      .bi-youtube { color: #ff3d3d; }
+    }
+
+    .player__video-slot {
+      flex-shrink: 0;
+      width: 100%;
+      max-width: 520px;
+      aspect-ratio: 16 / 9;
+      min-height: 200px;
+      margin: 10px 0 24px;
+      border-radius: var(--vo-radius-lg);
+      background: #000;
+    }
+
+    .player__hint--full {
+      color: var(--vo-text-secondary);
+      .bi-youtube { color: #ff3d3d; }
+    }
+
+    .player__mini-artist-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 768px) {
+      .player__expanded {
+        padding: calc(12px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
+      }
+    }
+
+    .player__expanded {
+      padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    }
   `],
 })
 export class PlayerComponent {
   readonly player = inject(PlayerService);
+  readonly library = inject(LibraryService);
   private readonly storage = inject(StorageService);
 
-  readonly isExpanded = signal(false);
-  readonly isFav = signal(false);
+  /** Shared with the video window so it can follow the full-screen player */
+  readonly isExpanded = this.player.playerExpanded;
   readonly recentTracks = signal<Track[]>([]);
+  readonly panel = signal<'queue' | 'lyrics' | 'recent'>('queue');
+  private readonly backNav = inject(BackService);
+  private readonly lyricsService = inject(LyricsService);
+  readonly lyrics = signal<Lyrics | null>(null);
+  readonly lyricsLoading = signal(false);
+  private lyricsFor: string | null = null;
+
+  /** Index of the synced line being sung right now */
+  readonly activeLine = computed(() => {
+    const l = this.lyrics();
+    if (!l?.synced) return -1;
+    const t = this.player.currentTime() + 0.25;
+    let idx = -1;
+    for (let i = 0; i < l.lines.length && l.lines[i].time <= t; i++) idx = i;
+    return idx;
+  });
+  readonly sleepMenu = signal(false);
+  readonly sleepOptions = [15, 30, 45, 60, 90];
+  private readonly now = signal(Date.now());
+
+  readonly sleepLabel = computed(() => {
+    const at = this.player.sleepAt();
+    if (at === null) return 'Sleep timer';
+    if (at === 'track') return 'Stops after song';
+    const mins = Math.max(1, Math.ceil((at - this.now()) / 60000));
+    return `Sleep in ${mins} min`;
+  });
+
+  constructor() {
+    // Phone back button closes the sleep menu, then the full-screen player
+    const back = this.backNav;
+    back.bind(this.isExpanded, () => this.isExpanded.set(false));
+    back.bind(this.sleepMenu, () => this.sleepMenu.set(false));
+
+    // Keeps the sleep countdown label fresh
+    const tick = setInterval(() => this.now.set(Date.now()), 30000);
+    inject(DestroyRef).onDestroy(() => clearInterval(tick));
+
+    // Fetch lyrics when the lyrics tab is open for a new song
+    effect(() => {
+      const track = this.player.currentTrack();
+      if (!track || !this.isExpanded() || this.panel() !== 'lyrics' || this.lyricsFor === track.id) return;
+      this.lyricsFor = track.id;
+      this.lyrics.set(null);
+      this.lyricsLoading.set(true);
+      this.lyricsService.getLyrics(track).subscribe({
+        next: (l) => {
+          if (this.player.currentTrack()?.id !== track.id) return;
+          this.lyrics.set(l);
+          this.lyricsLoading.set(false);
+        },
+        error: () => this.lyricsLoading.set(false),
+      });
+    });
+
+    // Keep the current lyric line centred
+    effect(() => {
+      const i = this.activeLine();
+      if (i < 0) return;
+      setTimeout(() => document.querySelector(`.lyric[data-line="${i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    });
+  }
+
+  openArtist(ref: string): void {
+    this.isExpanded.set(false);
+    this.backNav.navigate(['/artist', ref]);
+  }
+
+  youtube(track: Track): string {
+    return MusicApiService.youtubeUrl(track);
+  }
+
+  art(track: Track): string {
+    return track.album_image || track.image || 'icons/icon-192x192.png';
+  }
+
+  source(track: Track) {
+    return sourceMeta(track);
+  }
 
   toggleExpand(): void {
     this.isExpanded.update((v) => !v);
-    if (this.isExpanded() && this.player.currentTrack()) {
-      this.isFav.set(this.storage.isFavorite(this.player.currentTrack()!.id));
-      
-      // Get the 5 most recently played tracks, excluding the currently playing one
-      const currentId = this.player.currentTrack()!.id;
-      const recent = this.storage.getRecentTracks()
-        .filter(t => t.id !== currentId)
-        .slice(0, 5);
-      this.recentTracks.set(recent);
-    }
+    this.sleepMenu.set(false);
+    if (this.isExpanded() && this.panel() === 'recent') this.showRecent();
   }
 
-  toggleFavorite(): void {
-    const track = this.player.currentTrack();
-    if (track) {
-      const result = this.storage.toggleFavorite(track);
-      this.isFav.set(result);
-    }
+  showRecent(): void {
+    this.panel.set('recent');
+    const currentId = this.player.currentTrack()?.id;
+    this.recentTracks.set(this.storage.getRecentTracks().filter((t) => t.id !== currentId).slice(0, 10));
+  }
+
+  setSleep(m: number | 'track' | null): void {
+    this.player.setSleepTimer(m);
+    this.now.set(Date.now());
+    this.sleepMenu.set(false);
   }
 
   onSeek(event: Event): void {
@@ -546,5 +1130,62 @@ export class PlayerComponent {
   onVolume(event: Event): void {
     const value = +(event.target as HTMLInputElement).value;
     this.player.setVolume(value / 100);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKey(e: KeyboardEvent): void {
+    const target = e.target as HTMLElement;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const track = this.player.currentTrack();
+    if (!track) return;
+
+    const handled = (() => {
+      switch (e.key) {
+        case ' ':
+        case 'k':
+          // Let buttons/links keep their own space behaviour
+          if (e.key === ' ' && target?.closest('button, a, [role="button"]')) return false;
+          this.player.togglePlay();
+          return true;
+        case 'ArrowRight':
+          if (e.shiftKey) this.player.playNext(); else this.player.seekBy(10);
+          return true;
+        case 'ArrowLeft':
+          if (e.shiftKey) this.player.playPrevious(); else this.player.seekBy(-10);
+          return true;
+        case 'ArrowUp':
+          this.player.setVolume(this.player.volume() + 0.05);
+          return true;
+        case 'ArrowDown':
+          this.player.setVolume(this.player.volume() - 0.05);
+          return true;
+        case 's':
+        case 'S':
+          this.player.toggleShuffle();
+          return true;
+        case 'r':
+        case 'R':
+          this.player.cycleRepeat();
+          return true;
+        case 'l':
+        case 'L':
+          this.player.toggleFavorite(track);
+          return true;
+        case 'm':
+        case 'M':
+          this.player.toggleMute();
+          return true;
+        case 'Escape':
+          if (this.isExpanded()) {
+            this.isExpanded.set(false);
+            return true;
+          }
+          return false;
+        default:
+          return false;
+      }
+    })();
+    if (handled) e.preventDefault();
   }
 }

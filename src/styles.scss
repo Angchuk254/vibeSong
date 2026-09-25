@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Global Design System
+// YakBeats — Global Design System
 // ============================================
 
 @import 'bootstrap/scss/functions';
@@ -362,4 +362,85 @@ a {
     border-radius: var(--vo-radius-full);
     font-size: 1.2rem;
   }
+}
+
+// ── Source badges (PREVIEW / LIVE) ──
+.vo-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--vo-text-secondary);
+  border: 1px solid var(--vo-border-light);
+  line-height: 1.5;
+
+  &--live {
+    color: #fff;
+    background: #e5484d;
+    border-color: #e5484d;
+  }
+}
+
+// Artist names that open the artist page
+.artist-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--vo-text-primary);
+    text-decoration: underline;
+  }
+}
+
+// ── Mobile polish ──
+
+// Section headings with buttons wrap instead of squeezing the title
+.vo-section-title {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+// Icon-only buttons stay compact circles
+.vo-btn.vo-btn-icon-only {
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+// On touch screens a tap on a song row should play it, not open the
+// artist page (use the ⋯ menu → Go to artist instead)
+@media (hover: none) {
+  .track-item .artist-link,
+  .track-card .artist-link {
+    pointer-events: none;
+    text-decoration: none;
+  }
+}
+
+// Never let the page scroll sideways on phones
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+img,
+video,
+iframe {
+  max-width: 100%;
+}
+
+// Comfortable tap targets and no grey flash on tap
+button,
+a,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }

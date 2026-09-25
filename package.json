@@ -23,6 +23,7 @@
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "music-metadata": "^11.12.3",
+    "qrcode-generator": "^1.5.2",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

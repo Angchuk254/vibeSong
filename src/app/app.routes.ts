@@ -20,7 +20,19 @@ export const routes: Routes = [
       },
       {
         path: 'favorites',
-        redirectTo: 'library' // Library defaults to favorites tab
+        redirectTo: 'library' // Library defaults to the Liked Songs tab
+      },
+      {
+        path: 'artist/:ref',
+        loadComponent: () => import('./pages/artist/artist.component').then(m => m.ArtistComponent)
+      },
+      {
+        path: 'collection/:ref',
+        loadComponent: () => import('./pages/collection/collection.component').then(m => m.CollectionComponent)
+      },
+      {
+        path: 'playlist/:id',
+        loadComponent: () => import('./pages/playlist/playlist.component').then(m => m.PlaylistComponent)
       },
       {
         path: 'category/:id',

@@ -1,5 +1,5 @@
 // ============================================
-// vibeOnly — Theme Service
+// YakBeats — Theme Service
 // ============================================
 
 import { Injectable, signal, effect, inject } from '@angular/core';

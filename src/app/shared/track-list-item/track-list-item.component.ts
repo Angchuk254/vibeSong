@@ -1,16 +1,19 @@
 // ============================================
-// vibeOnly — Track List Item Component
+// YakBeats — Track List Item Component
 // ============================================
 
-import { Component, input, inject, OnInit } from '@angular/core';
+import { Component, input, output, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { Track } from '../../models';
-import { PlayerService, StorageService } from '../../services';
+import { PlayerService } from '../../services';
 import { DurationPipe } from '../../pipes';
+import { TrackMenuComponent } from '../track-menu/track-menu.component';
+import { sourceMeta } from '../source-badge';
 
 @Component({
   selector: 'app-track-list-item',
   standalone: true,
-  imports: [DurationPipe],
+  imports: [DurationPipe, TrackMenuComponent],
   template: `
     <div class="track-item" 
          (click)="onPlay()" 
@@ -34,19 +37,29 @@ import { DurationPipe } from '../../pipes';
            [alt]="track().name"
            loading="lazy" />
       <div class="track-item__info">
-        <h4 class="track-item__title">
-          {{ track().name }}
-          @if (track().provider) {
-            <i class="bi provider-icon" [class]="getProviderIcon(track().provider)" [title]="track().provider"></i>
+        <h4 class="track-item__title"><span class="track-item__name">{{ track().name }}</span></h4>
+        <p class="track-item__artist">
+          @if (track().isLive || track().provider === 'radio') {
+            <span class="vo-badge vo-badge--live">LIVE</span>
+          } @else if (track().isPreview) {
+            <span class="vo-badge">PREVIEW</span>
           }
-        </h4>
-        <p class="track-item__artist">{{ track().artist_name }}</p>
+          <i class="bi provider-icon" [class]="source().icon" [title]="source().label"></i>
+          @if (track().artistRef) {
+            <a class="track-item__artist-name artist-link" (click)="openArtist($event)" (keydown.enter)="openArtist($event)" tabindex="0">{{ track().artist_name }}</a>
+          } @else {
+            <span class="track-item__artist-name">{{ track().artist_name }}</span>
+          }
+        </p>
       </div>
-      <span class="track-item__duration">{{ track().duration | duration }}</span>
+      <span class="track-item__duration">
+        @if (track().isLive || track().provider === 'radio') { <i class="bi bi-broadcast"></i> } @else { {{ track().duration | duration }} }
+      </span>
       <button class="track-item__fav" (click)="onToggleFavorite($event)"
-              [attr.aria-label]="isFav ? 'Remove from favorites' : 'Add to favorites'">
-        <i class="bi" [class.bi-heart-fill]="isFav" [class.bi-heart]="!isFav"></i>
+              [attr.aria-label]="isFav() ? 'Remove from Liked Songs' : 'Save to Liked Songs'">
+        <i class="bi" [class.bi-heart-fill]="isFav()" [class.bi-heart]="!isFav()"></i>
       </button>
+      <app-track-menu [track]="track()" [removable]="removable()" (remove)="remove.emit($event)" (click)="$event.stopPropagation()"></app-track-menu>
     </div>
   `,
   styles: [`
@@ -125,14 +138,18 @@ import { DurationPipe } from '../../pipes';
     .track-item__title {
       font-size: 0.9rem;
       font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       margin: 0;
       color: var(--vo-text-primary);
       display: flex;
-      align-items: center;
-      gap: 6px;
+      min-width: 0;
+    }
+
+    .track-item__name,
+    .track-item__artist-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
     }
 
     .provider-icon {
@@ -144,10 +161,11 @@ import { DurationPipe } from '../../pipes';
     .track-item__artist {
       font-size: 0.78rem;
       color: var(--vo-text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       margin: 2px 0 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
     }
 
     .track-item__duration {
@@ -190,18 +208,29 @@ import { DurationPipe } from '../../pipes';
     }
   `],
 })
-export class TrackListItemComponent implements OnInit {
+export class TrackListItemComponent {
   readonly track = input.required<Track>();
   readonly index = input(0);
   readonly trackList = input<Track[]>([]);
+  /** Show "Remove from this playlist" in the menu */
+  readonly removable = input(false);
+  readonly remove = output<Track>();
 
   private player = inject(PlayerService);
-  private storage = inject(StorageService);
+  private router = inject(Router);
 
-  isFav = false;
+  openArtist(e: Event): void {
+    e.stopPropagation();
+    const ref = this.track().artistRef;
+    if (ref) this.router.navigate(['/artist', ref]);
+  }
 
-  ngOnInit(): void {
-    this.isFav = this.storage.isFavorite(this.track().id);
+  isFav(): boolean {
+    return this.player.isFavorite(this.track().id);
+  }
+
+  source() {
+    return sourceMeta(this.track());
   }
 
   isCurrentlyPlaying(): boolean {
@@ -216,17 +245,6 @@ export class TrackListItemComponent implements OnInit {
 
   onToggleFavorite(event: Event): void {
     event.stopPropagation();
-    this.isFav = this.storage.toggleFavorite(this.track());
-  }
-
-  getProviderIcon(provider?: string): string {
-    switch (provider) {
-      case 'jamendo': return 'bi-music-note-beamed';
-      case 'archive': return 'bi-bank';
-      case 'local': return 'bi-hdd-fill';
-      case 'radio': return 'bi-boombox';
-      case 'supabase': return 'bi-cloud-check-fill';
-      default: return 'bi-music-note';
-    }
+    this.player.toggleFavorite(this.track());
   }
 }
