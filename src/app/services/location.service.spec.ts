@@ -118,5 +118,45 @@ describe('LocationService', () => {
       expect(await ok).toBe(true);
       expect(loc.label()).toBe('Leh, Ladakh');
     });
+
+    it('checks again after an hour and uses GPS silently when allowed', async () => {
+      const hourAgo = Date.now() - 61 * 60 * 1000;
+      localStorage.setItem('vo_location', JSON.stringify({ city: 'Leh', region: 'Ladakh', country: 'India', countryCode: 'IN', source: 'gps', at: hourAgo }));
+      Object.defineProperty(navigator, 'permissions', { value: { query: async () => ({ state: 'granted' }) }, configurable: true });
+      geo.getCurrentPosition.mockImplementation((ok: PositionCallback) => ok({ coords: { latitude: 34.55, longitude: 76.13 } } as GeolocationPosition));
+      const notices: string[] = [];
+      const listen = (e: Event) => notices.push((e as CustomEvent).detail);
+      window.addEventListener('vo-notice', listen);
+
+      const fresh = TestBed.runInInjectionContext(() => new LocationService());
+      expect(fresh.label()).toBe(''); // stale, not trusted
+      const done = fresh.refresh();
+      expect(fresh.label()).toBe('Leh, Ladakh'); // last city stays on screen meanwhile
+      (await next('https://api.bigdatacloud.net')).flush({ city: 'Kargil', principalSubdivision: 'Ladakh', countryName: 'India', countryCode: 'IN' });
+      await done;
+
+      http.expectNone('https://get.geojs.io/v1/ip/geo.json'); // no IP step, no prompt
+      expect(fresh.label()).toBe('Kargil, Ladakh');
+      expect(notices.some((n) => n.includes('Kargil'))).toBe(true);
+      window.removeEventListener('vo-notice', listen);
+      delete (navigator as any).permissions;
+    });
+
+    it('asks for permission automatically only once', async () => {
+      geo.getCurrentPosition.mockImplementation((_ok: PositionCallback, fail: PositionErrorCallback) =>
+        fail({ code: 3, message: 'timeout' } as GeolocationPositionError) // dismissed / timed out, not blocked
+      );
+      const first = loc.refresh();
+      (await next('https://get.geojs.io')).flush({ city: 'Leh', region: 'Ladakh', country: 'India', country_code: 'IN' });
+      await first;
+      expect(geo.getCurrentPosition).toHaveBeenCalledTimes(1);
+
+      localStorage.setItem('vo_location', JSON.stringify({ ...loc.place(), at: Date.now() - 2 * 3600 * 1000 }));
+      const again = TestBed.runInInjectionContext(() => new LocationService());
+      const second = again.refresh();
+      (await next('https://get.geojs.io')).flush({ city: 'Leh', region: 'Ladakh', country: 'India', country_code: 'IN' });
+      await second;
+      expect(geo.getCurrentPosition).toHaveBeenCalledTimes(1); // not prompted again
+    });
   });
 });

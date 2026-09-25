@@ -6,7 +6,9 @@
 //    position is turned into a city name and replaces the IP guess.
 // 3. If the user blocks it or the device can't tell, the IP city stays and we
 //    don't ask again automatically (a tap on 🎯 can retry).
-// Only the city name is kept on-device (12h cache); can be turned off.
+// 4. Re-checked every hour (and when the app comes back to the foreground),
+//    because people move — with location allowed this uses GPS silently.
+// Only the city name is kept on-device; can be turned off.
 
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -25,7 +27,10 @@ export interface Place {
 const CACHE_KEY = 'vo_location';
 const ENABLED_KEY = 'vo_show_location';
 const DENIED_KEY = 'vo_geo_denied';
-const TTL = 12 * 3600 * 1000;
+const ASKED_KEY = 'vo_geo_asked';
+/** How long a city is trusted before checking again */
+export const LOCATION_TTL = 60 * 60 * 1000;
+const TTL = LOCATION_TTL;
 
 @Injectable({ providedIn: 'root' })
 export class LocationService {
@@ -39,6 +44,7 @@ export class LocationService {
   readonly denied = signal(this.read<boolean>(DENIED_KEY) === true);
 
   private loading: Promise<void> | null = null;
+  private watching = false;
 
   /** Device location is possible here (HTTPS + supported browser) */
   get canUseDevice(): boolean {
@@ -62,6 +68,7 @@ export class LocationService {
    */
   refresh(): Promise<void> {
     if (!this.enabled()) return Promise.resolve();
+    this.watch();
     if (!this.loading) {
       this.loading = this.run().finally(() => (this.loading = null));
     }
@@ -93,21 +100,58 @@ export class LocationService {
 
   // ── Internals ──
 
-  private async run(): Promise<void> {
-    const cached = this.cached();
-    if (cached) this.place.set(cached);
+  /** Check again every hour while open, and when the app returns to the foreground */
+  private watch(): void {
+    if (this.watching || typeof window === 'undefined') return;
+    this.watching = true;
+    const checkIfStale = () => {
+      if (this.enabled() && !this.cached()) this.refresh();
+    };
+    setInterval(checkIfStale, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkIfStale();
+    });
+    window.addEventListener('online', checkIfStale);
+  }
 
-    // Show something immediately from the IP address
-    if (!cached) {
-      const ip = await this.fromIp();
-      if (ip && this.enabled()) this.save(ip);
+  private async run(): Promise<void> {
+    const fresh = this.cached();
+    if (fresh) {
+      this.place.set(fresh);
+      return;
+    }
+    // Keep showing the last known city while we look again (no flicker)
+    const previous = this.place() || this.read<Place>(CACHE_KEY);
+    if (previous && !this.place()) this.place.set(previous);
+
+    const permission = this.canUseDevice && !this.denied() ? await this.permission() : 'denied';
+
+    // Location already allowed: go straight to GPS, silently
+    if (permission === 'granted') {
+      const gps = await this.fromDevice();
+      if (gps) return this.update(gps, previous);
     }
 
-    // Upgrade to the device location when we can (and haven't been refused)
-    const needsDevice = !cached || cached.source !== 'gps';
-    if (needsDevice && this.canUseDevice && !this.denied() && (await this.permission()) !== 'denied') {
+    // Otherwise (or if GPS failed) use the IP address
+    const ip = await this.fromIp();
+    if (ip) this.update(ip, previous);
+
+    // Ask for the device location automatically only once, ever — browsers
+    // block sites that keep prompting. After that, 🎯 retries on demand.
+    const askedBefore = this.read<boolean>(ASKED_KEY) === true;
+    if (!askedBefore && (permission === 'prompt' || permission === 'unknown')) {
+      this.write(ASKED_KEY, true);
       const gps = await this.fromDevice();
-      if (gps && this.enabled()) this.save(gps);
+      if (gps) this.update(gps, this.place());
+    }
+  }
+
+  /** Save the new place and say so if the city changed */
+  private update(p: Place, previous: Place | null): void {
+    if (!this.enabled()) return;
+    this.save(p);
+    if (previous?.city && p.city && previous.city.toLowerCase() !== p.city.toLowerCase()) {
+      notify(`📍 New spot unlocked: now vibing from ${this.label(p)}`);
     }
   }
 
