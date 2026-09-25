@@ -664,9 +664,10 @@ import { Track } from '../models';
       font-weight: 600;
       box-shadow: var(--vo-shadow-md);
       animation: toastIn 0.2s ease;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      /* Long messages wrap instead of being cut off on narrow phones */
+      width: max-content;
+      text-align: center;
+      line-height: 1.4;
     }
 
     @keyframes toastIn {

@@ -6,3 +6,4 @@ export { PlaylistPickerComponent } from './playlist-picker/playlist-picker.compo
 export { sourceMeta } from './source-badge';
 export { ArtistCardComponent } from './artist-card/artist-card.component';
 export { CollectionCardComponent } from './collection-card/collection-card.component';
+export { ShareCardComponent } from './share-card/share-card.component';

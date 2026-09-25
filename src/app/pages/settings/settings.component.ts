@@ -1,12 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { ShareCardComponent } from '../../shared/share-card/share-card.component';
 import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, PlayerService, LocationService } from '../../services';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ShareCardComponent],
   template: `
     <div class="settings-page vo-fade-in">
       <header class="settings-header">
@@ -31,6 +32,14 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
                 <div class="toggle-knob"></div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Share -->
+        <div class="settings-section">
+          <h2 class="section-title">Share vibeOnly</h2>
+          <div class="settings-card glass-panel">
+            <app-share-card></app-share-card>
           </div>
         </div>
 
