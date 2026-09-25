@@ -47,7 +47,7 @@ import { PlayerService, YouTubeService, DeviceMusicService } from '../../service
       left: auto;
       top: auto;
       right: 12px;
-      bottom: calc(var(--vo-bottom-nav-height) + var(--vo-player-height) + 12px);
+      bottom: calc(var(--vo-bottom-nav-height) + var(--vo-player-height) + env(safe-area-inset-bottom, 0px) + 12px);
       width: min(356px, calc(100vw - 24px));
       height: auto;
       box-shadow: var(--vo-shadow-lg);

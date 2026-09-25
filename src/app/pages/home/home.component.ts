@@ -2,11 +2,12 @@
 // vibeOnly — Home Page Component
 // ============================================
 
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent } from '../../shared';
-import { MusicApiService, StorageService, PlayerService, LibraryService, DeviceMusicService } from '../../services';
+import { MusicApiService, StorageService, PlayerService, LibraryService, DeviceMusicService, LocationService } from '../../services';
+import { DAILY_VIBES, LOCAL_FLAVOURS, pickForDay } from '../../core/vibes.data';
 import { Track, MusicCategory, ArtistSummary, Collection } from '../../models';
 import { MUSIC_CATEGORIES } from '../../core/categories.data';
 import { Observable, Subject, of, takeUntil, finalize } from 'rxjs';
@@ -29,9 +30,17 @@ interface Row {
     <div class="home vo-fade-in">
       <!-- Header -->
       <header class="home__header">
-        <div>
+        <div class="home__intro">
           <h2 class="home__greeting">{{ greeting() }}</h2>
-          <p class="home__subtitle">Full-length songs, your uploads, and live radio — all in one place</p>
+          @if (placeLabel()) {
+            <p class="home__place"><i class="bi bi-geo-alt-fill"></i> Vibing from <strong>{{ placeLabel() }}</strong></p>
+          }
+          <div class="home__vibe">
+            <p class="home__vibe-text">{{ vibe() }}</p>
+            <button class="home__vibe-shuffle" (click)="vibeSalt.set(vibeSalt() + 1)" aria-label="Another message" title="Another message">
+              <i class="bi bi-shuffle"></i>
+            </button>
+          </div>
         </div>
         <button class="home__refresh" (click)="refresh()" aria-label="Refresh" title="Refresh">
           <i class="bi bi-arrow-clockwise"></i>
@@ -197,10 +206,75 @@ interface Row {
       color: var(--vo-text-primary);
     }
 
-    .home__subtitle {
-      font-size: 0.95rem;
+    .home__intro {
+      min-width: 0;
+      flex: 1;
+    }
+
+    /* Refresh sits in the corner so the message can use the full width */
+    .home__header { position: relative; }
+    .home__refresh { position: absolute; top: 0; right: 0; }
+    .home__greeting { padding-right: 52px; }
+
+    .home__place {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 8px 0 0;
+      padding: 4px 12px 4px 10px;
+      border-radius: var(--vo-radius-xl);
+      background: var(--vo-bg-input);
+      border: 1px solid var(--vo-border-light);
+      font-size: 0.82rem;
       color: var(--vo-text-secondary);
-      margin: 4px 0 0;
+      max-width: 100%;
+
+      i { color: #ff6b6b; }
+      strong {
+        color: var(--vo-text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    .home__vibe {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 12px;
+      max-width: 620px;
+      padding: 12px 14px;
+      border-radius: var(--vo-radius-md);
+      background: linear-gradient(135deg, rgba(108, 92, 231, 0.16), rgba(0, 206, 201, 0.08));
+      border: 1px solid var(--vo-border);
+    }
+
+    .home__vibe-text {
+      flex: 1;
+      margin: 0;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      color: var(--vo-text-primary);
+    }
+
+    .home__vibe-shuffle {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: var(--vo-bg-input);
+      color: var(--vo-text-secondary);
+      cursor: pointer;
+
+      &:hover { color: var(--vo-text-primary); }
+      &:active i { display: inline-block; transform: rotate(180deg); transition: transform 0.2s; }
+    }
+
+    @media (max-width: 576px) {
+      .home__greeting { font-size: 1.5rem; }
+      .home__vibe-text { font-size: 0.86rem; }
     }
 
     .home__refresh {
@@ -334,6 +408,12 @@ interface Row {
       transition: opacity var(--vo-transition-fast);
     }
 
+    @media (hover: none), (max-width: 576px) {
+      .quick-tile__play { display: none; }
+      .quick-tile { padding-right: 8px; gap: 8px; }
+      .quick-tile__art { width: 52px; height: 52px; }
+    }
+
     /* Row header */
     .row-title {
       display: flex;
@@ -407,11 +487,39 @@ export class HomeComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   private readonly featured = ['bollywood', 'punjabi', 'hindi', 'pop', 'hiphop', 'lofi', 'chill', 'workout', 'romance',
-    'ladakhi', 'spiti', 'tibet', 'nepal', 'kpop', 'electronic', 'rock', 'devotional', 'radio'];
+    'ladakhi', 'spiti', 'tibet', 'nepal', 'bhutan', 'radio-himalayan', 'kpop', 'electronic', 'rock', 'devotional', 'radio'];
   categories = this.featured.map((id) => MUSIC_CATEGORIES.find((c) => c.id === id)!).filter(Boolean);
   recentTracks = signal<Track[]>([]);
   likedCount = signal(0);
-  greeting = signal('Good evening');
+  private location = inject(LocationService);
+  private readonly now = signal(new Date());
+  readonly vibeSalt = signal(0);
+
+  /** Local hello for Himalayan places (Julley, Namaste, Kuzuzangpo la…) */
+  private readonly flavour = computed(() => {
+    const p = this.location.place();
+    if (!p) return null;
+    const text = `${p.city} ${p.region} ${p.country}`;
+    return LOCAL_FLAVOURS.find((f) => f.match.test(text)) || null;
+  });
+
+  readonly placeLabel = computed(() => (this.location.enabled() ? this.location.label() : ''));
+
+  readonly greeting = computed(() => {
+    const h = this.now().getHours();
+    const base = h >= 5 && h < 12 ? 'Good morning' : h >= 12 && h < 17 ? 'Good afternoon' : h >= 17 && h < 22 ? 'Good evening' : 'Late-night vibes';
+    const hello = this.flavour()?.hello;
+    return hello ? `${hello}! ${base}` : base;
+  });
+
+  /** Today's message: same all day, new tomorrow, 🔀 for another */
+  readonly vibe = computed(() => {
+    const today = this.now();
+    const local = this.flavour()?.vibes || [];
+    const pool = [...local, ...DAILY_VIBES[today.getDay()]];
+    const place = this.location.enabled() && this.location.place()?.city ? this.location.place()!.city : 'your corner of the world';
+    return pickForDay(pool, today, this.vibeSalt()).replaceAll('{place}', place);
+  });
   rows = signal<Row[]>([]);
   playlists = signal<Collection[]>([]);
   artists = signal<ArtistSummary[]>([]);
@@ -423,7 +531,10 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.updateGreeting();
+    this.location.refresh();
+    // Keep the greeting right if the app stays open past a time boundary
+    const tick = setInterval(() => this.now.set(new Date()), 60000);
+    this.destroy$.subscribe(() => clearInterval(tick));
     this.loadPersonal();
     this.rows.set(this.buildRows());
     this.loadRows();
@@ -496,7 +607,8 @@ export class HomeComponent implements OnInit, OnDestroy {
       this.row('world', 'World & Folk', 'bi-globe-asia-australia', () => this.musicApi.getGenreTracks('World')),
       this.row('kpop', 'K-Pop', 'bi-stars', () => this.musicApi.getPreviewTracks('k-pop', 15, 'KR'), '30s previews'),
       this.row('devotional', 'Devotional', 'bi-brightness-high', () => this.musicApi.getGenreTracks('Devotional')),
-      this.row('radio', 'Live Radio', 'bi-broadcast', () => this.musicApi.getRadioStations('india', 12), 'Stations checked for HTTPS streams'),
+      this.row('himradio', 'Himalayan Radio', 'bi-broadcast-pin', () => this.musicApi.getRadioStations('himalayan', 14), 'Live from Nepal, Bhutan, Ladakh & Tibet'),
+      this.row('radio', 'Live Radio India', 'bi-broadcast', () => this.musicApi.getRadioStations('india', 12), 'Stations checked for HTTPS streams'),
       this.row('archive', 'From the Archives', 'bi-bank2', () => this.musicApi.getArchiveTracks(10), 'Public-domain recordings'),
     );
     return rows;
@@ -524,12 +636,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.rows.update((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
-  private updateGreeting(): void {
-    const hour = new Date().getHours();
-    if (hour < 12) this.greeting.set('Good morning');
-    else if (hour < 18) this.greeting.set('Good afternoon');
-    else this.greeting.set('Good evening');
-  }
 
   private loadPersonal(): void {
     this.recentTracks.set(this.storage.getRecentTracks());

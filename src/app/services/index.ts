@@ -6,3 +6,4 @@ export { LibraryService } from './library.service';
 export { LyricsService } from './lyrics.service';
 export { DeviceMusicService } from './device-music.service';
 export { YouTubeService } from './youtube.service';
+export { LocationService } from './location.service';

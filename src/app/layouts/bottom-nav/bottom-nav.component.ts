@@ -2,8 +2,8 @@
 // vibeOnly — Bottom Navigation Component
 // ============================================
 
-import { Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 
 @Component({
   selector: 'app-bottom-nav',
@@ -35,7 +35,8 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
       bottom: 0;
       left: 0;
       right: 0;
-      height: var(--vo-bottom-nav-height);
+      /* Extra room for the iPhone home bar */
+      height: calc(var(--vo-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
       background: var(--vo-bg-player);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);

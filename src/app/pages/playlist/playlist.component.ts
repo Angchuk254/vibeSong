@@ -42,10 +42,10 @@ import { Track } from '../../models';
           <button class="vo-btn vo-btn-ghost" (click)="player.playAll(pl.tracks, true)" [disabled]="!pl.tracks.length">
             <i class="bi bi-shuffle"></i> Shuffle
           </button>
-          <button class="vo-btn vo-btn-ghost" (click)="player.addToQueue(pl.tracks)" [disabled]="!pl.tracks.length" title="Add all to queue"><i class="bi bi-list-ul"></i></button>
-          <button class="vo-btn vo-btn-ghost" [class.on]="reorder()" (click)="reorder.set(!reorder())" [disabled]="pl.tracks.length < 2" title="Reorder songs"><i class="bi bi-arrow-down-up"></i></button>
-          <button class="vo-btn vo-btn-ghost" (click)="startEdit(pl.name)" title="Rename"><i class="bi bi-pencil"></i></button>
-          <button class="vo-btn vo-btn-ghost danger" (click)="remove()"><i class="bi bi-trash3"></i></button>
+          <button class="vo-btn vo-btn-ghost vo-btn-icon-only" (click)="player.addToQueue(pl.tracks)" [disabled]="!pl.tracks.length" title="Add all to queue"><i class="bi bi-list-ul"></i></button>
+          <button class="vo-btn vo-btn-ghost vo-btn-icon-only" [class.on]="reorder()" (click)="reorder.set(!reorder())" [disabled]="pl.tracks.length < 2" title="Reorder songs"><i class="bi bi-arrow-down-up"></i></button>
+          <button class="vo-btn vo-btn-ghost vo-btn-icon-only" (click)="startEdit(pl.name)" title="Rename"><i class="bi bi-pencil"></i></button>
+          <button class="vo-btn vo-btn-ghost vo-btn-icon-only danger" (click)="remove()"><i class="bi bi-trash3"></i></button>
         </div>
 
         <div class="track-list">

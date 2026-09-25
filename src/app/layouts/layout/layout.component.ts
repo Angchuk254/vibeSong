@@ -48,6 +48,8 @@ import { UpdateBannerComponent } from '../update-banner/update-banner.component'
 
     .layout__content {
       padding: 20px 16px;
+      /* Keep the last row clear of the mini player + bottom nav */
+      padding-bottom: calc(var(--vo-safe-bottom) + env(safe-area-inset-bottom, 0px) + 16px);
       max-width: 1200px;
       margin: 0 auto;
     }

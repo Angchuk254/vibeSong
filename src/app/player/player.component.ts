@@ -39,7 +39,7 @@ import { Track } from '../models';
               <p class="player__mini-artist">
                 @if (player.isLive()) { <span class="vo-badge vo-badge--live">LIVE</span> }
                 @else if (track.isPreview) { <span class="vo-badge">PREVIEW</span> }
-                {{ track.artist_name }}
+                <span class="player__mini-artist-name">{{ track.artist_name }}</span>
               </p>
             </div>
             <div class="player__mini-controls" role="group" tabindex="-1" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
@@ -286,7 +286,7 @@ import { Track } from '../models';
       position: fixed;
       left: 0;
       right: 0;
-      bottom: var(--vo-bottom-nav-height);
+      bottom: calc(var(--vo-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
       z-index: 1050;
       transition: all var(--vo-transition-slow);
     }
@@ -652,7 +652,7 @@ import { Track } from '../models';
     .player__toast {
       position: fixed;
       left: 50%;
-      bottom: calc(var(--vo-bottom-nav-height) + var(--vo-player-height) + 16px);
+      bottom: calc(var(--vo-bottom-nav-height) + var(--vo-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
       transform: translateX(-50%);
       z-index: 5000;
       max-width: calc(100vw - 32px);
@@ -995,6 +995,19 @@ import { Track } from '../models';
     .player__hint--full {
       color: var(--vo-text-secondary);
       .bi-youtube { color: #ff3d3d; }
+    }
+
+    .player__mini-artist-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 768px) {
+      .player__expanded {
+        padding: 12px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+      }
     }
   `],
 })

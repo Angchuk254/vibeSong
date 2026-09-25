@@ -44,6 +44,8 @@ import { MusicApiService } from '../../../services/music-api.service';
               <select id="category" name="category" [(ngModel)]="category" class="select-input">
                 <option value="Ladakhi">Ladakhi</option>
                 <option value="Spiti">Spiti / Kinnauri</option>
+                <option value="Bhutanese">Bhutanese</option>
+                <option value="Nepali">Nepali</option>
                 <option value="Pahadi">Pahadi</option>
                 <option value="Tibetan">Tibetan</option>
                 <option value="Hindi">Hindi</option>

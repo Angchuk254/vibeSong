@@ -278,7 +278,23 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
 
     @media (max-width: 576px) {
       .cat-header {
-        padding: 24px 16px;
+        padding: 64px 16px 20px;
+      }
+      .cat-header__content {
+        gap: 14px;
+        align-items: flex-start;
+
+        .icon-wrapper {
+          width: 56px;
+          height: 56px;
+          border-radius: 14px;
+          flex-shrink: 0;
+
+          i { font-size: 1.8rem; }
+        }
+      }
+      .cat-header__desc {
+        font-size: 0.9rem;
       }
       .cat-header__content i {
         font-size: 2.5rem;

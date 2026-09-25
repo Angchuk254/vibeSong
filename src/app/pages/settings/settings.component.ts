@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, PlayerService } from '../../services';
+import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, PlayerService, LocationService } from '../../services';
 
 @Component({
   selector: 'app-settings',
@@ -30,6 +30,26 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
               <div class="toggle-switch" [class.active]="theme.isDark()">
                 <div class="toggle-knob"></div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Home -->
+        <div class="settings-section">
+          <h2 class="section-title">Home</h2>
+          <div class="settings-card glass-panel">
+            <div class="setting-row" tabindex="0" role="switch" [attr.aria-checked]="location.enabled()"
+                 (click)="location.setEnabled(!location.enabled())"
+                 (keydown.enter)="location.setEnabled(!location.enabled())">
+              <div class="setting-icon appearance"><i class="bi bi-geo-alt-fill"></i></div>
+              <div class="setting-label">
+                <h3>Show my city</h3>
+                <p>
+                  @if (location.enabled() && location.label()) { Showing "{{ location.label() }}" · }
+                  Approximate, from your internet connection (IP). Only the city name is kept on this device.
+                </p>
+              </div>
+              <div class="toggle-switch" [class.active]="location.enabled()"><div class="toggle-knob"></div></div>
             </div>
           </div>
         </div>
@@ -186,6 +206,13 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
       max-width: 650px;
       margin: 0 auto;
       padding-bottom: 120px;
+    }
+
+    @media (max-width: 576px) {
+      .settings-page { padding: 4px 0 140px; }
+      .settings-header { margin-bottom: 24px; }
+      .setting-row { padding: 14px; gap: 12px; }
+      .settings-card { border-radius: var(--vo-radius-lg); }
     }
 
     .settings-header {
@@ -395,6 +422,7 @@ export class SettingsComponent {
   readonly device = inject(DeviceMusicService);
   readonly youtube = inject(YouTubeService);
   readonly player = inject(PlayerService);
+  readonly location = inject(LocationService);
   readonly origin = location.origin + location.pathname.replace(/\/settings.*$/, '');
   readonly keyDraft = signal('');
   readonly keyState = signal<'idle' | 'checking' | 'ok' | 'bad'>('idle');

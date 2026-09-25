@@ -3,6 +3,7 @@
 // ============================================
 
 import { Component, ElementRef, HostListener, inject, input, output, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { Track } from '../../models';
 import { PlayerService, LibraryService, MusicApiService } from '../../services';
 
@@ -19,6 +20,9 @@ import { PlayerService, LibraryService, MusicApiService } from '../../services';
         <button role="menuitem" (click)="playNext()"><i class="bi bi-arrow-return-right"></i> Play next</button>
         <button role="menuitem" (click)="addToQueue()"><i class="bi bi-list-ul"></i> Add to queue</button>
         <button role="menuitem" (click)="addToPlaylist()"><i class="bi bi-plus-square"></i> Add to playlist</button>
+        @if (track().artistRef) {
+          <button role="menuitem" (click)="goToArtist()"><i class="bi bi-person"></i> Go to artist</button>
+        }
         @if (track().isPreview) {
           <a role="menuitem" [href]="youtube()" target="_blank" rel="noopener" (click)="close()"><i class="bi bi-youtube"></i> Full song on YouTube</a>
           @if (track().externalUrl) {
@@ -84,6 +88,14 @@ export class TrackMenuComponent {
   toggle(e: Event): void {
     e.stopPropagation();
     this.open.update((v) => !v);
+  }
+
+  private router = inject(Router);
+
+  goToArtist(): void {
+    const ref = this.track().artistRef;
+    this.close();
+    if (ref) this.router.navigate(['/artist', ref]);
   }
 
   youtube(): string {

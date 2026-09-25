@@ -365,11 +365,13 @@ const EMPTY: Results = { songs: [], stations: [], artists: [], playlists: [] };
 
     .top-row {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       gap: 24px;
 
+      > * { min-width: 0; }
+
       @media (min-width: 992px) {
-        grid-template-columns: 2fr 3fr;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
       }
     }
 

@@ -25,7 +25,7 @@ export class RadioProvider implements MusicProvider {
 
   getTracksByTag(tag: string, limit = 10): Observable<Track[]> {
     const regionalTags = [
-      'ladakhi', 'spiti', 'pahadi', 'uttarakhand', 'himachali', 'bollywood', 'punjabi', 'hindi', 'nepal', 'india', 'tibet', 'pakistan',
+      'ladakhi', 'spiti', 'bhutan', 'himalayan', 'pahadi', 'uttarakhand', 'himachali', 'bollywood', 'punjabi', 'hindi', 'nepal', 'india', 'tibet', 'pakistan',
       'lofi', 'jazz', 'zen', 'chillout', '80s', 'rock', 'classical', 'electronic'
     ];
     if (regionalTags.includes(tag.toLowerCase())) {
@@ -64,7 +64,12 @@ export class RadioProvider implements MusicProvider {
     const plans: Record<string, Record<string, string>[]> = {
       pakistan: [q({ countrycode: 'PK' })],
       india: [q({ countrycode: 'IN' })],
-      nepal: [q({ countrycode: 'NP' })],
+      nepal: [q({ countrycode: 'NP' }), q({ name: 'nepal' }), q({ name: 'kantipur' }), ...tags('nepali', 'nepal')],
+      bhutan: [q({ countrycode: 'BT' }), q({ name: 'bhutan' }), q({ name: 'kuzoo' }), q({ name: 'bbs' }), ...tags('bhutan', 'dzongkha')],
+      himalayan: [
+        q({ countrycode: 'NP' }), q({ countrycode: 'BT' }), q({ name: 'leh' }), q({ name: 'ladakh' }),
+        ...tags('tibetan', 'himalayan'),
+      ],
       tibet: [...tags('tibetan', 'buddhist', 'mantra'), q({ name: 'tibet' })],
       uttarakhand: [...tags('uttarakhand', 'garhwali', 'pahadi'), q({ name: 'uttarakhand' })],
       himachali: [...tags('himachal', 'pahadi'), q({ name: 'himachal' }), q({ name: 'shimla' })],

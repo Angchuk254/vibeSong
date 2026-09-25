@@ -396,3 +396,51 @@ a {
     text-decoration: underline;
   }
 }
+
+// ── Mobile polish ──
+
+// Section headings with buttons wrap instead of squeezing the title
+.vo-section-title {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+// Icon-only buttons stay compact circles
+.vo-btn.vo-btn-icon-only {
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+// On touch screens a tap on a song row should play it, not open the
+// artist page (use the ⋯ menu → Go to artist instead)
+@media (hover: none) {
+  .track-item .artist-link,
+  .track-card .artist-link {
+    pointer-events: none;
+    text-decoration: none;
+  }
+}
+
+// Never let the page scroll sideways on phones
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+img,
+video,
+iframe {
+  max-width: 100%;
+}
+
+// Comfortable tap targets and no grey flash on tap
+button,
+a,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
