@@ -45,8 +45,10 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
               <div class="setting-label">
                 <h3>Show my city</h3>
                 <p>
-                  @if (location.enabled() && location.label()) { Showing "{{ location.label() }}" · }
-                  Approximate, from your internet connection (IP). Only the city name is kept on this device.
+                  @if (location.enabled() && location.label()) {
+                    Showing "{{ location.label() }}" ({{ location.place()?.source === 'gps' ? 'device location' : 'from your IP' }}) ·
+                  }
+                  Uses your device location if you allow it, otherwise your internet connection (IP). Only the city name is kept on this device.
                 </p>
               </div>
               <div class="toggle-switch" [class.active]="location.enabled()"><div class="toggle-knob"></div></div>

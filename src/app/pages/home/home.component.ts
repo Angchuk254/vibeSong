@@ -33,7 +33,19 @@ interface Row {
         <div class="home__intro">
           <h2 class="home__greeting">{{ greeting() }}</h2>
           @if (placeLabel()) {
-            <p class="home__place"><i class="bi bi-geo-alt-fill"></i> Vibing from <strong>{{ placeLabel() }}</strong></p>
+            <div class="home__place-row">
+              <p class="home__place">
+                <i class="bi" [class.bi-geo-alt-fill]="!location.locating()" [class.bi-arrow-repeat]="location.locating()" [class.spin]="location.locating()"></i>
+                Vibing from <strong>{{ placeLabel() }}</strong>
+              </p>
+              @if (location.place()?.source === 'ip' && location.canUseDevice && !location.locating()) {
+                <button class="home__precise" (click)="location.usePreciseLocation()" aria-label="Use my precise location" title="Use my precise location">
+                  <i class="bi bi-crosshair"></i>
+                </button>
+              }
+            </div>
+          } @else if (location.enabled() && location.locating()) {
+            <p class="home__place"><i class="bi bi-arrow-repeat spin"></i> Finding your vibe spot…</p>
           }
           <div class="home__vibe">
             <p class="home__vibe-text">{{ vibe() }}</p>
@@ -237,6 +249,30 @@ interface Row {
         text-overflow: ellipsis;
       }
     }
+
+    .home__place-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      max-width: 100%;
+
+      .home__place { margin: 0; min-width: 0; }
+    }
+
+    .home__precise {
+      flex-shrink: 0;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--vo-border-light);
+      background: var(--vo-bg-input);
+      color: var(--vo-accent-light);
+      cursor: pointer;
+    }
+
+    .spin { display: inline-block; animation: homeSpin 1s linear infinite; }
+    @keyframes homeSpin { to { transform: rotate(360deg); } }
 
     .home__vibe {
       display: flex;
@@ -491,7 +527,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   categories = this.featured.map((id) => MUSIC_CATEGORIES.find((c) => c.id === id)!).filter(Boolean);
   recentTracks = signal<Track[]>([]);
   likedCount = signal(0);
-  private location = inject(LocationService);
+  readonly location = inject(LocationService);
   private readonly now = signal(new Date());
   readonly vibeSalt = signal(0);
 
