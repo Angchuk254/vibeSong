@@ -8,7 +8,7 @@ export function sourceMeta(track: Track): { icon: string; label: string } {
     case 'archive': return { icon: 'bi-bank', label: 'Full song · Internet Archive' };
     case 'radio': return { icon: 'bi-broadcast', label: 'Live radio' };
     case 'supabase': return { icon: 'bi-cloud-check-fill', label: 'Your upload' };
-    case 'local': return { icon: 'bi-hdd-fill', label: 'Local' };
+    case 'device': return { icon: 'bi-phone', label: 'On this device' };
     default: return { icon: 'bi-music-note', label: track.provider || '' };
   }
 }

@@ -6,10 +6,11 @@ import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TrackListItemComponent, ArtistCardComponent } from '../../shared';
-import { StorageService, PlayerService, LibraryService } from '../../services';
+import { StorageService, PlayerService, LibraryService, DeviceMusicService } from '../../services';
+import { MUSIC_CATEGORIES, CATEGORY_GROUPS } from '../../core/categories.data';
 import { Track } from '../../models';
 
-type Tab = 'liked' | 'playlists' | 'artists' | 'recent' | 'stats';
+type Tab = 'liked' | 'playlists' | 'artists' | 'device' | 'recent' | 'stats';
 type Sort = 'recent' | 'title' | 'artist';
 
 @Component({
@@ -133,6 +134,64 @@ type Sort = 'recent' | 'title' | 'artist';
               <span>Tap an artist's name, then Follow</span>
             </div>
           }
+        }
+
+        <!-- Songs on this device -->
+        @if (activeTab() === 'device') {
+          <div class="device-add">
+            <div class="device-add__text">
+              <strong><i class="bi bi-phone"></i> Add songs from your phone or computer</strong>
+              <span>Perfect for Ladakhi, Spiti and other music the free catalogs don't have. Songs play in full, work offline, and are stored only in this browser.</span>
+            </div>
+            <div class="device-add__controls">
+              <label class="field">
+                <span>Category</span>
+                <select [value]="importCategory()" (change)="importCategory.set($any($event.target).value)" aria-label="Category for new songs">
+                  @for (g of importGroups; track g.id) {
+                    <optgroup [label]="g.title">
+                      @for (c of categoriesIn(g.id); track c.id) {
+                        <option [value]="c.id" [selected]="c.id === importCategory()">{{ c.name }}</option>
+                      }
+                    </optgroup>
+                  }
+                </select>
+              </label>
+              <label class="vo-btn vo-btn-primary" [class.disabled]="device.importing()">
+                <i class="bi bi-plus-lg"></i> Choose songs
+                <input type="file" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" multiple hidden
+                       [disabled]="!!device.importing()" (change)="addDeviceFiles($event)" />
+              </label>
+            </div>
+            @if (device.importing(); as p) {
+              <div class="progress"><div class="progress__bar" [style.width.%]="(p.done / p.total) * 100"></div></div>
+              <span class="hint">Adding {{ p.done + 1 > p.total ? p.total : p.done + 1 }} of {{ p.total }}…</span>
+            } @else if (deviceMessage()) {
+              <span class="import-msg">{{ deviceMessage() }}</span>
+            }
+          </div>
+
+          @if (device.count() > 0) {
+            <div class="action-bar">
+              <div class="action-bar__buttons">
+                <button class="vo-btn vo-btn-primary" (click)="player.playAll(device.tracks())"><i class="bi bi-play-fill"></i> Play</button>
+                <button class="vo-btn vo-btn-ghost" (click)="player.playAll(device.tracks(), true)"><i class="bi bi-shuffle"></i> Shuffle</button>
+              </div>
+              <span class="track-count">{{ device.count() }} songs</span>
+            </div>
+          }
+          <div class="track-list">
+            @for (track of device.tracks(); track track.id; let i = $index) {
+              <div class="device-row">
+                <app-track-list-item class="device-row__item" [track]="track" [index]="i + 1" [trackList]="device.tracks()"></app-track-list-item>
+                <select class="device-row__cat" [value]="track.category" (change)="device.setCategory(deviceId(track), $any($event.target).value)" aria-label="Category">
+                  @for (c of allCategories; track c.id) {
+                    <option [value]="c.id" [selected]="c.id === track.category">{{ c.name }}</option>
+                  }
+                </select>
+                <button class="device-row__del" (click)="removeDevice(track)" aria-label="Delete from this device"><i class="bi bi-trash3"></i></button>
+              </div>
+            }
+          </div>
         }
 
         <!-- Recent -->
@@ -284,6 +343,92 @@ type Sort = 'recent' | 'title' | 'artist';
 
         &:focus { border-color: var(--vo-accent); }
       }
+    }
+
+    .device-add {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+      border-radius: var(--vo-radius-lg);
+      background: linear-gradient(135deg, rgba(108, 92, 231, 0.18), var(--vo-bg-card));
+      border: 1px solid var(--vo-border-light);
+    }
+
+    .device-add__text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      strong { font-size: 1rem; i { color: var(--vo-accent-light); } }
+      span { font-size: 0.85rem; color: var(--vo-text-secondary); }
+    }
+
+    .device-add__controls {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+
+      .disabled { opacity: 0.5; pointer-events: none; }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.75rem;
+      color: var(--vo-text-muted);
+    }
+
+    .field select,
+    .device-row__cat {
+      height: 40px;
+      border-radius: var(--vo-radius-md);
+      border: 1px solid var(--vo-border-light);
+      background: var(--vo-bg-input);
+      color: var(--vo-text-primary);
+      padding: 0 10px;
+      font-size: 0.85rem;
+
+      option, optgroup { background: var(--vo-bg-secondary); }
+    }
+
+    .progress {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--vo-bg-input);
+      overflow: hidden;
+    }
+
+    .progress__bar {
+      height: 100%;
+      background: var(--vo-gradient-accent);
+      transition: width 0.2s ease;
+    }
+
+    .device-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .device-row__item { flex: 1; min-width: 0; }
+    .device-row__cat { height: 34px; max-width: 130px; font-size: 0.78rem; }
+
+    .device-row__del {
+      background: none;
+      border: none;
+      color: var(--vo-text-muted);
+      padding: 8px;
+      cursor: pointer;
+
+      &:hover { color: #ff6b6b; }
+    }
+
+    @media (max-width: 576px) {
+      .device-row__cat { max-width: 90px; }
     }
 
     .artist-grid {
@@ -555,6 +700,7 @@ export class LibraryComponent implements OnInit {
     { id: 'liked', label: 'Liked Songs' },
     { id: 'playlists', label: 'Playlists' },
     { id: 'artists', label: 'Artists' },
+    { id: 'device', label: 'On this device' },
     { id: 'recent', label: 'Recent' },
     { id: 'stats', label: 'Your Stats' },
   ];
@@ -568,6 +714,37 @@ export class LibraryComponent implements OnInit {
   query = signal('');
   sort = signal<Sort>('recent');
   importMessage = signal('');
+  readonly device = inject(DeviceMusicService);
+  readonly importGroups = CATEGORY_GROUPS.filter((g) => g.id !== 'radio');
+  readonly allCategories = MUSIC_CATEGORIES.filter((c) => c.group !== 'radio');
+  importCategory = signal('ladakhi');
+  deviceMessage = signal('');
+
+  categoriesIn(group: string) {
+    return MUSIC_CATEGORIES.filter((c) => c.group === group);
+  }
+
+  deviceId(track: Track): string {
+    return track.audio.replace('device:', '');
+  }
+
+  addDeviceFiles(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+    const cat = MUSIC_CATEGORIES.find((c) => c.id === this.importCategory());
+    this.device.addFiles(files, this.importCategory()).then((n) => {
+      this.deviceMessage.set(
+        n ? `Added ${n} song${n === 1 ? '' : 's'}${cat ? ` to ${cat.name}` : ''}. They'll show up on the ${cat?.name || ''} page too.` : 'No audio files found in that selection.'
+      );
+      input.value = '';
+      setTimeout(() => this.deviceMessage.set(''), 8000);
+    });
+  }
+
+  removeDevice(track: Track): void {
+    if (confirm(`Delete "${track.name}" from this device?`)) this.device.remove(this.deviceId(track));
+  }
 
   /** Re-reads storage whenever a song is liked/unliked anywhere in the app */
   readonly favorites = computed(() => {
@@ -609,6 +786,8 @@ export class LibraryComponent implements OnInit {
 
   ngOnInit(): void {
     const tab = this.route.snapshot.queryParamMap.get('tab') as Tab | null;
+    const cat = this.route.snapshot.queryParamMap.get('cat');
+    if (cat && MUSIC_CATEGORIES.some((c) => c.id === cat)) this.importCategory.set(cat);
     if (tab && this.tabs.some((t) => t.id === tab)) this.activeTab.set(tab);
     this.loadData();
   }

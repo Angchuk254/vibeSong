@@ -4,7 +4,7 @@
 
 import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { PlayerService, StorageService, LibraryService, LyricsService } from '../services';
+import { PlayerService, StorageService, LibraryService, LyricsService, MusicApiService } from '../services';
 import { Lyrics } from '../services/lyrics.service';
 import { TrackListItemComponent } from '../shared/track-list-item/track-list-item.component';
 import { sourceMeta } from '../shared/source-badge';
@@ -102,7 +102,13 @@ import { Track } from '../models';
                 @if (track.genre) { <span class="player__genre">&nbsp;· {{ track.genre }}</span> }
               </p>
               @if (track.isPreview) {
-                <p class="player__hint"><i class="bi bi-info-circle"></i> 30-second preview — full song isn't free to stream</p>
+                <p class="player__hint"><i class="bi bi-info-circle"></i> 30-second preview — only a short clip is free to stream</p>
+                <div class="player__full">
+                  <a class="player__chip" [href]="youtube(track)" target="_blank" rel="noopener"><i class="bi bi-youtube"></i> Full song on YouTube</a>
+                  @if (track.externalUrl) {
+                    <a class="player__chip" [href]="track.externalUrl" target="_blank" rel="noopener"><i class="bi bi-apple"></i> Apple Music</a>
+                  }
+                </div>
               }
             </div>
 
@@ -957,6 +963,16 @@ import { Track } from '../models';
       font-size: 0.7rem;
       color: var(--vo-text-muted);
     }
+
+    .player__full {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 10px;
+
+      a { text-decoration: none; }
+      .bi-youtube { color: #ff3d3d; }
+    }
   `],
 })
 export class PlayerComponent {
@@ -1026,6 +1042,10 @@ export class PlayerComponent {
   openArtist(ref: string): void {
     this.isExpanded.set(false);
     this.router.navigate(['/artist', ref]);
+  }
+
+  youtube(track: Track): string {
+    return MusicApiService.youtubeUrl(track);
   }
 
   art(track: Track): string {

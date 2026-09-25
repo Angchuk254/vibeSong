@@ -16,6 +16,7 @@ const KEYS = {
   PLAYER_PREFS: 'vo_player_prefs',
   ARTISTS: 'vo_followed_artists',
   SEARCHES: 'vo_recent_searches',
+  HIDE_PREVIEWS: 'vo_hide_previews',
 } as const;
 
 export interface PlayerSession {
@@ -173,6 +174,16 @@ export class StorageService {
     else list.unshift({ ref: artist.ref, name: artist.name, image: artist.image, verified: artist.verified });
     this.setItem(KEYS.ARTISTS, list);
     return idx < 0;
+  }
+
+  // ── Preferences ──
+
+  getHidePreviews(): boolean {
+    return this.getItem<boolean>(KEYS.HIDE_PREVIEWS) === true;
+  }
+
+  setHidePreviews(hide: boolean): void {
+    this.setItem(KEYS.HIDE_PREVIEWS, hide);
   }
 
   // ── Recent searches ──

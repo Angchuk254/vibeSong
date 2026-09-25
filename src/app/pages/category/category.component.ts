@@ -2,9 +2,9 @@
 // vibeOnly — Category Detail Component
 // ============================================
 
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
@@ -38,11 +38,14 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
 
         <section class="cat-content">
           <h3 class="vo-section-title">
-            <span>Top Tracks @if (!isLoading()) { <small class="cat-count">{{ tracks().length }}</small> }</span>
-            @if (!isLoading() && tracks().length > 0) {
+            <span>
+              {{ category()!.group === 'radio' ? 'Stations' : 'Full songs' }}
+              @if (!isLoading()) { <small class="cat-count">{{ fullSongs().length }}</small> }
+            </span>
+            @if (!isLoading() && fullSongs().length > 0) {
               <span class="cat-actions">
-                <button class="vo-btn cat-shuffle" (click)="player.playAll(tracks(), true)"><i class="bi bi-shuffle"></i> Shuffle</button>
-                <button class="vo-btn vo-btn-primary" (click)="player.playAll(tracks())"><i class="bi bi-play-fill"></i> Play</button>
+                <button class="vo-btn cat-shuffle" (click)="player.playAll(fullSongs(), true)"><i class="bi bi-shuffle"></i> Shuffle</button>
+                <button class="vo-btn vo-btn-primary" (click)="player.playAll(fullSongs())"><i class="bi bi-play-fill"></i> Play</button>
               </span>
             }
           </h3>
@@ -52,15 +55,48 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
                 <app-skeleton type="card"></app-skeleton>
               }
             } @else {
-              @for (track of tracks(); track track.id) {
-                <app-track-card [track]="track" [trackList]="tracks()"></app-track-card>
-              }
-              @if (tracks().length === 0) {
-                <div class="empty-state">No tracks found for this category.</div>
+              @for (track of fullSongs(); track track.id) {
+                <app-track-card [track]="track" [trackList]="fullSongs()"></app-track-card>
               }
             }
           </div>
+
+          @if (!isLoading() && category()!.group !== 'radio') {
+            <div class="add-own" [class.add-own--prominent]="fullSongs().length < 8">
+              <i class="bi bi-phone"></i>
+              <div>
+                <strong>
+                  @if (fullSongs().length === 0) { No full {{ category()!.name }} songs in the free catalogs yet }
+                  @else { Have more {{ category()!.name }} songs? }
+                </strong>
+                <span>Add MP3s from your phone or computer — they play in full, stay on this device, and show up right here.</span>
+              </div>
+              <button class="vo-btn vo-btn-primary" (click)="addOwn()"><i class="bi bi-plus-lg"></i> Add your songs</button>
+            </div>
+          }
         </section>
+
+        @if (!isLoading() && previews().length > 0) {
+          <section class="cat-content">
+            <h3 class="vo-section-title">
+              <span>
+                30-second previews <small class="cat-count">{{ previews().length }}</small>
+                <small class="cat-hint">Only a short clip is free to stream. Open a song's <i class="bi bi-three-dots"></i> menu or the player for the full version on YouTube.</small>
+              </span>
+              <button class="vo-btn cat-shuffle" (click)="musicApi.setHidePreviews(true); reload()"><i class="bi bi-eye-slash"></i> Hide previews</button>
+            </h3>
+            <div class="track-grid">
+              @for (track of previews(); track track.id) {
+                <app-track-card [track]="track" [trackList]="previews()"></app-track-card>
+              }
+            </div>
+          </section>
+        } @else if (!isLoading() && musicApi.hidePreviews()) {
+          <p class="cat-hint cat-hint--center">
+            30-second previews are hidden.
+            <button class="link-btn" (click)="musicApi.setHidePreviews(false); reload()">Show them</button>
+          </p>
+        }
       }
     </div>
   `,
@@ -69,6 +105,7 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
       display: flex;
       flex-direction: column;
       gap: 32px;
+      padding-bottom: 120px;
     }
 
     .cat-header {
@@ -179,6 +216,52 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
       color: var(--vo-text-primary);
     }
 
+    .add-own {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+      padding: 16px 20px;
+      border-radius: var(--vo-radius-lg);
+      background: var(--vo-bg-card);
+      border: 1px dashed var(--vo-border-light);
+
+      > i { font-size: 1.8rem; color: var(--vo-accent-light); }
+      div { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      strong { font-size: 0.95rem; }
+      span { font-size: 0.82rem; color: var(--vo-text-secondary); }
+      button { flex-shrink: 0; }
+
+      &--prominent {
+        border-style: solid;
+        border-color: var(--vo-accent);
+        background: linear-gradient(135deg, rgba(108, 92, 231, 0.18), var(--vo-bg-card));
+      }
+    }
+
+    .cat-hint {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--vo-text-muted);
+      margin-top: 4px;
+      max-width: 560px;
+
+      &--center { text-align: center; }
+    }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: var(--vo-accent-light);
+      cursor: pointer;
+      font-size: inherit;
+    }
+
+    @media (max-width: 576px) {
+      .add-own { flex-direction: column; align-items: flex-start; }
+    }
+
     .track-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -212,7 +295,8 @@ import { MUSIC_CATEGORIES } from '../../core/categories.data';
 })
 export class CategoryComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
-  private musicApi = inject(MusicApiService);
+  readonly musicApi = inject(MusicApiService);
+  private router = inject(Router);
   readonly player = inject(PlayerService);
   private location = inject(Location);
   private destroy$ = new Subject<void>();
@@ -220,6 +304,17 @@ export class CategoryComponent implements OnInit, OnDestroy {
   category = signal<MusicCategory | null>(null);
   tracks = signal<Track[]>([]);
   isLoading = signal(true);
+  readonly fullSongs = computed(() => this.tracks().filter((t) => !t.isPreview));
+  readonly previews = computed(() => this.tracks().filter((t) => t.isPreview));
+
+  reload(): void {
+    const cat = this.category();
+    if (cat) this.loadCategoryTracks(cat);
+  }
+
+  addOwn(): void {
+    this.router.navigate(['/library'], { queryParams: { tab: 'device', cat: this.category()?.id } });
+  }
 
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {

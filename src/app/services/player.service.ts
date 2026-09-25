@@ -6,6 +6,7 @@ import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { Track } from '../models';
 import { StorageService } from './storage.service';
 import { MusicApiService } from './music-api.service';
+import { DeviceMusicService, DEVICE_PREFIX } from './device-music.service';
 
 /** How long a track may sit loading before we give up on it */
 const LOAD_TIMEOUT_MS = 15000;
@@ -16,6 +17,7 @@ const MAX_CONSECUTIVE_FAILURES = 6;
 export class PlayerService {
   private storage = inject(StorageService);
   private musicApi = inject(MusicApiService);
+  private device = inject(DeviceMusicService);
   private audio = new Audio();
 
   // ── Signals ──
@@ -398,10 +400,27 @@ export class PlayerService {
     this.currentTime.set(0);
     this.duration.set(track.duration || 0);
     this.pendingSeek = startAt > 0 ? startAt : null;
-    this.audio.src = track.audio;
-    this.audio.load();
     this.updateMediaSession(track);
     this.saveSession();
+
+    this.sourceFor(track).then((src) => {
+      if (this.currentTrack()?.id !== track.id) return; // user moved on
+      if (!src) {
+        this.handleFailure(new Error('Song is no longer on this device'));
+        return;
+      }
+      this.startPlayback(track, src);
+    });
+  }
+
+  /** Songs added from this device live in IndexedDB and need a blob: URL */
+  private sourceFor(track: Track): Promise<string | null> {
+    return track.audio.startsWith(DEVICE_PREFIX) ? this.device.resolve(track.audio) : Promise.resolve(track.audio);
+  }
+
+  private startPlayback(track: Track, src: string): void {
+    this.audio.src = src;
+    this.audio.load();
 
     this.loadTimer = setTimeout(() => {
       if (this.currentTrack()?.id === track.id && this.isLoading() && !this.isPlaying()) {
@@ -621,8 +640,10 @@ export class PlayerService {
     this.currentTime.set(session.time || 0);
     this.isPlayerVisible.set(true);
     this.audio.preload = 'none';
-    this.audio.src = track.audio;
     if (session.time && !track.isLive) this.pendingSeek = session.time;
+    this.sourceFor(track).then((src) => {
+      if (src && this.currentTrack()?.id === track.id && !this.audio.src) this.audio.src = src;
+    });
     this.updateMediaSession(track);
   }
 

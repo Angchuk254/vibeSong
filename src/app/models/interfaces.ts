@@ -30,6 +30,8 @@ export interface Track {
   isLive?: boolean;
   /** Link to the artist page, e.g. "audius:abc12" or "itunes:1234" */
   artistRef?: string;
+  /** Where the full song can be heard (e.g. Apple Music page for a preview) */
+  externalUrl?: string;
 }
 
 /** An artist from any source */

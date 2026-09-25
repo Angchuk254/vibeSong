@@ -2,8 +2,8 @@
 // vibeOnly — Music API Service
 // ============================================
 
-import { Injectable, inject } from '@angular/core';
-import { Observable, forkJoin, of, timeout } from 'rxjs';
+import { Injectable, inject, signal } from '@angular/core';
+import { Observable, forkJoin, from, of, timeout } from 'rxjs';
 import { map, catchError, shareReplay, defaultIfEmpty } from 'rxjs/operators';
 import { Track, MusicCategory, ArtistSummary, Collection } from '../models';
 import { RadioProvider } from '../core/providers/radio.provider';
@@ -12,6 +12,8 @@ import { ArchiveProvider } from '../core/providers/archive.provider';
 import { AudiusProvider } from '../core/providers/audius.provider';
 import { ItunesProvider } from '../core/providers/itunes.provider';
 import { MUSIC_CATEGORIES } from '../core/categories.data';
+import { DeviceMusicService } from './device-music.service';
+import { StorageService } from './storage.service';
 
 /**
  * Aggregates the music sources. Full-length songs (your Supabase uploads, Audius,
@@ -25,6 +27,22 @@ export class MusicApiService {
   private archive = inject(ArchiveProvider);
   private audius = inject(AudiusProvider);
   private itunes = inject(ItunesProvider);
+  private device = inject(DeviceMusicService);
+  private storage = inject(StorageService);
+
+  /** When on, 30-second previews are left out everywhere */
+  readonly hidePreviews = signal(this.storage.getHidePreviews());
+
+  setHidePreviews(hide: boolean): void {
+    this.hidePreviews.set(hide);
+    this.storage.setHidePreviews(hide);
+    this.clearCache();
+  }
+
+  /** YouTube search for the full version of a song */
+  static youtubeUrl(t: Track): string {
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${t.artist_name} ${t.name}`)}`;
+  }
 
   private trendingCache$: Observable<Track[]> | null = null;
   private readonly rowCache = new Map<string, Observable<unknown>>();
@@ -111,6 +129,7 @@ export class MusicApiService {
   }
 
   getPreviewTracks(term: string, limit = 15, country = 'IN'): Observable<Track[]> {
+    if (this.hidePreviews()) return of([]);
     return this.cached(`itunes:${term}:${limit}:${country}`, () => this.safe(this.itunes.search(term, limit, country)));
   }
 
@@ -138,7 +157,10 @@ export class MusicApiService {
       return s.match.some((k) => text.includes(k.toLowerCase()));
     };
 
-    const sources: Observable<Track[]>[] = [this.supabase.getTracksByTag(s.uploads || cat.name, limit)];
+    const sources: Observable<Track[]>[] = [
+      from(this.device.ready).pipe(map(() => this.device.byCategory(cat.id))),
+      this.supabase.getTracksByTag(s.uploads || cat.name, limit),
+    ];
     if (s.audiusGenre) sources.push(this.audius.getTrendingByGenre(s.audiusGenre, limit));
     (s.audius || []).forEach((q) =>
       sources.push(this.audius.searchTracks(q, Math.ceil(limit / 2)).pipe(map((ts) => ts.filter(matches))))
@@ -162,6 +184,7 @@ export class MusicApiService {
   searchTracks(query: string, limit = 20): Observable<Track[]> {
     if (!query.trim()) return of([]);
     return this.merge([
+      from(this.device.ready).pipe(map(() => this.device.search(query))),
       this.supabase.searchTracks(query, limit),
       this.audius.searchTracks(query, limit),
       this.archive.searchTracks(query, 6),
@@ -202,6 +225,14 @@ export class MusicApiService {
   /** More tracks like this one, used for autoplay when the queue runs out */
   getSimilarTracks(track: Track, limit = 15): Observable<Track[]> {
     if (track.isLive) return this.getRadioStations(track.tags?.split(',')[0] || 'india', limit);
+    if (track.provider === 'device') {
+      // Keep going through your own songs from the same category first
+      const mine = this.shuffle(this.device.byCategory(track.category || '').filter((t) => t.id !== track.id));
+      const cat = MUSIC_CATEGORIES.find((c) => c.id === track.category);
+      return (cat ? this.getCategoryTracks(cat, limit) : this.audius.getTrendingTracks(limit)).pipe(
+        map((more) => this.dedupe([...mine, ...more.filter((t) => t.id !== track.id)]))
+      );
+    }
     const genre = track.genre && AudiusProvider.GENRES.includes(track.genre) ? track.genre : null;
     const sources = genre
       ? [this.audius.getTrendingByGenre(genre, limit), this.audius.searchTracks(track.artist_name, 6)]
@@ -219,7 +250,10 @@ export class MusicApiService {
   private merge(sources: Observable<Track[]>[]): Observable<Track[]> {
     if (sources.length === 0) return of([]);
     return forkJoin(sources.map((s) => this.safe(s))).pipe(
-      map((results) => this.rank(this.dedupe(results.flat()))),
+      map((results) => {
+        const all = this.rank(this.dedupe(results.flat()));
+        return this.hidePreviews() ? all.filter((t) => !t.isPreview) : all;
+      }),
       defaultIfEmpty([] as Track[])
     );
   }

@@ -6,7 +6,7 @@ import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent } from '../../shared';
-import { MusicApiService, StorageService, PlayerService, LibraryService } from '../../services';
+import { MusicApiService, StorageService, PlayerService, LibraryService, DeviceMusicService } from '../../services';
 import { Track, MusicCategory, ArtistSummary, Collection } from '../../models';
 import { MUSIC_CATEGORIES } from '../../core/categories.data';
 import { Observable, Subject, of, takeUntil, finalize } from 'rxjs';
@@ -139,6 +139,21 @@ interface Row {
             </div>
           </section>
         }
+      }
+
+      @if (device.count() > 0) {
+        <section class="home__section home__section--device">
+          <h3 class="vo-section-title">
+            <span class="row-title"><i class="bi bi-phone"></i><span>On This Device<small>Your own songs, full length</small></span></span>
+            <span class="row-actions">
+              <button class="row-btn" (click)="player.playAll(device.tracks(), true)" aria-label="Shuffle play"><i class="bi bi-shuffle"></i></button>
+              <button class="row-btn row-btn--play" (click)="player.playAll(device.tracks())" aria-label="Play all"><i class="bi bi-play-fill"></i></button>
+            </span>
+          </h3>
+          <div class="vo-hscroll">
+            @for (t of device.tracks(); track t.id) { <app-track-card [track]="t" [trackList]="device.tracks()"></app-track-card> }
+          </div>
+        </section>
       }
 
       @if (library.followedArtists().length > 0) {
@@ -386,6 +401,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   private storage = inject(StorageService);
   readonly player = inject(PlayerService);
   readonly library = inject(LibraryService);
+  readonly device = inject(DeviceMusicService);
   readonly router = inject(Router);
   readonly totalCategories = MUSIC_CATEGORIES.length;
   private destroy$ = new Subject<void>();

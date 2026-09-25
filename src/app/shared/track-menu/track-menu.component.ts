@@ -4,7 +4,7 @@
 
 import { Component, ElementRef, HostListener, inject, input, output, signal } from '@angular/core';
 import { Track } from '../../models';
-import { PlayerService, LibraryService } from '../../services';
+import { PlayerService, LibraryService, MusicApiService } from '../../services';
 
 @Component({
   selector: 'app-track-menu',
@@ -19,6 +19,12 @@ import { PlayerService, LibraryService } from '../../services';
         <button role="menuitem" (click)="playNext()"><i class="bi bi-arrow-return-right"></i> Play next</button>
         <button role="menuitem" (click)="addToQueue()"><i class="bi bi-list-ul"></i> Add to queue</button>
         <button role="menuitem" (click)="addToPlaylist()"><i class="bi bi-plus-square"></i> Add to playlist</button>
+        @if (track().isPreview) {
+          <a role="menuitem" [href]="youtube()" target="_blank" rel="noopener" (click)="close()"><i class="bi bi-youtube"></i> Full song on YouTube</a>
+          @if (track().externalUrl) {
+            <a role="menuitem" [href]="track().externalUrl" target="_blank" rel="noopener" (click)="close()"><i class="bi bi-apple"></i> Full song on Apple Music</a>
+          }
+        }
         <button role="menuitem" (click)="like()">
           <i class="bi" [class.bi-heart-fill]="player.isFavorite(track().id)" [class.bi-heart]="!player.isFavorite(track().id)"></i>
           {{ player.isFavorite(track().id) ? 'Remove from Liked' : 'Save to Liked Songs' }}
@@ -42,8 +48,8 @@ import { PlayerService, LibraryService } from '../../services';
       background: var(--vo-bg-card); border: 1px solid var(--vo-border-light);
       box-shadow: var(--vo-shadow-lg); display: flex; flex-direction: column;
       animation: tmIn 0.12s ease;
-      button {
-        display: flex; align-items: center; gap: 10px; width: 100%;
+      button, a {
+        display: flex; align-items: center; gap: 10px; width: 100%; text-decoration: none;
         background: none; border: none; color: var(--vo-text-primary);
         padding: 9px 10px; border-radius: var(--vo-radius-sm); font-size: 0.85rem; text-align: left; cursor: pointer;
         &:hover { background: var(--vo-bg-input); }
@@ -78,6 +84,10 @@ export class TrackMenuComponent {
   toggle(e: Event): void {
     e.stopPropagation();
     this.open.update((v) => !v);
+  }
+
+  youtube(): string {
+    return MusicApiService.youtubeUrl(this.track());
   }
 
   playNext(): void {

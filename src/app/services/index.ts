@@ -4,3 +4,4 @@ export { StorageService } from './storage.service';
 export { ThemeService } from './theme.service';
 export { LibraryService } from './library.service';
 export { LyricsService } from './lyrics.service';
+export { DeviceMusicService } from './device-music.service';

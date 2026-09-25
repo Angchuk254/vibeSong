@@ -101,6 +101,7 @@ export class ItunesProvider implements MusicProvider {
       provider: this.id,
       isPreview: true,
       artistRef: r.artistId ? `itunes:${r.artistId}` : undefined,
+      externalUrl: r.trackViewUrl,
     };
   }
 }

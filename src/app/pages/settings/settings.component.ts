@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { ThemeService } from '../../services';
+import { ThemeService, MusicApiService, DeviceMusicService } from '../../services';
 
 @Component({
   selector: 'app-settings',
@@ -19,7 +19,7 @@ import { ThemeService } from '../../services';
         <div class="settings-section">
           <h2 class="section-title">Appearance</h2>
           <div class="settings-card glass-panel">
-            <div class="setting-row" (click)="theme.toggleTheme()">
+            <div class="setting-row" tabindex="0" role="button" (click)="theme.toggleTheme()" (keydown.enter)="theme.toggleTheme()">
               <div class="setting-icon appearance">
                 <i class="bi" [class.bi-moon-stars-fill]="theme.isDark()" [class.bi-sun-fill]="!theme.isDark()"></i>
               </div>
@@ -34,11 +34,42 @@ import { ThemeService } from '../../services';
           </div>
         </div>
 
+        <!-- Playback -->
+        <div class="settings-section">
+          <h2 class="section-title">Playback</h2>
+          <div class="settings-card glass-panel">
+            <div class="setting-row" tabindex="0" role="switch" [attr.aria-checked]="musicApi.hidePreviews()"
+                 (click)="musicApi.setHidePreviews(!musicApi.hidePreviews())"
+                 (keydown.enter)="musicApi.setHidePreviews(!musicApi.hidePreviews())">
+              <div class="setting-icon appearance">
+                <i class="bi bi-scissors"></i>
+              </div>
+              <div class="setting-label">
+                <h3>Full songs only</h3>
+                <p>Hide 30-second iTunes previews everywhere (fewer Bollywood/Punjabi results)</p>
+              </div>
+              <div class="toggle-switch" [class.active]="musicApi.hidePreviews()">
+                <div class="toggle-knob"></div>
+              </div>
+            </div>
+            <div class="setting-row" tabindex="0" role="button" (click)="openDevice()" (keydown.enter)="openDevice()">
+              <div class="setting-icon appearance">
+                <i class="bi bi-phone"></i>
+              </div>
+              <div class="setting-label">
+                <h3>Songs on this device</h3>
+                <p>{{ device.count() }} songs · add your own MP3s</p>
+              </div>
+              <i class="bi bi-chevron-right arrow"></i>
+            </div>
+          </div>
+        </div>
+
         <!-- Account & Management (Desktop Only) -->
         <div class="settings-section vo-desktop-only">
           <h2 class="section-title">Administration</h2>
           <div class="settings-card glass-panel">
-            <div class="setting-row" (click)="openAdmin()">
+            <div class="setting-row" tabindex="0" role="button" (click)="openAdmin()" (keydown.enter)="openAdmin()">
               <div class="setting-icon admin">
                 <i class="bi bi-shield-lock-fill"></i>
               </div>
@@ -55,7 +86,7 @@ import { ThemeService } from '../../services';
         <div class="settings-section">
           <h2 class="section-title">Data & Storage</h2>
           <div class="settings-card glass-panel">
-            <div class="setting-row" (click)="clearCache()">
+            <div class="setting-row" tabindex="0" role="button" (click)="clearCache()" (keydown.enter)="clearCache()">
               <div class="setting-icon danger">
                 <i class="bi bi-trash3-fill"></i>
               </div>
@@ -255,6 +286,12 @@ import { ThemeService } from '../../services';
 export class SettingsComponent {
   private router = inject(Router);
   readonly theme = inject(ThemeService);
+  readonly musicApi = inject(MusicApiService);
+  readonly device = inject(DeviceMusicService);
+
+  openDevice() {
+    this.router.navigate(['/library'], { queryParams: { tab: 'device' } });
+  }
 
   openAdmin() {
     this.router.navigate(['/admin']);
