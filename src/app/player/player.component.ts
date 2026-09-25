@@ -6,6 +6,8 @@ import { Component, DestroyRef, HostListener, computed, effect, inject, signal }
 import { PlayerService, StorageService, LibraryService, LyricsService, MusicApiService } from '../services';
 import { Lyrics } from '../services/lyrics.service';
 import { BackService } from '../services/back.service';
+import { AlarmService } from '../services/alarm.service';
+import { AudioFxService } from '../services/audio-fx.service';
 import { TrackListItemComponent } from '../shared/track-list-item/track-list-item.component';
 import { sourceMeta } from '../shared/source-badge';
 import { Track } from '../models';
@@ -170,6 +172,15 @@ import { Track } from '../models';
               <button class="player__chip" [class.active]="player.autoplay()" (click)="player.toggleAutoplay()"
                       title="Keep playing similar songs when the queue ends">
                 <i class="bi bi-infinity"></i> Autoplay {{ player.autoplay() ? 'on' : 'off' }}
+              </button>
+              <button class="player__chip" (click)="openMode('car')" title="Big buttons for driving">
+                <i class="bi bi-car-front-fill"></i> Car mode
+              </button>
+              <button class="player__chip" [class.active]="!!alarms.nextRing()" (click)="openMode('alarm')" title="Wake up to music">
+                <i class="bi bi-alarm"></i> {{ alarms.nextRing() ? 'Alarm ' + alarmTime() : 'Alarm' }}
+              </button>
+              <button class="player__chip" [class.active]="fx.eqOn() || fx.crossfade() > 0" (click)="openSound()" title="Equalizer and crossfade">
+                <i class="bi bi-sliders"></i> Sound
               </button>
               <div class="player__sleep">
                 <button class="player__chip" [class.active]="player.sleepAt() !== null" (click)="sleepMenu.set(!sleepMenu())">
@@ -1026,6 +1037,26 @@ export class PlayerComponent {
   readonly recentTracks = signal<Track[]>([]);
   readonly panel = signal<'queue' | 'lyrics' | 'recent'>('queue');
   private readonly backNav = inject(BackService);
+  readonly alarms = inject(AlarmService);
+  readonly fx = inject(AudioFxService);
+
+  readonly alarmTime = computed(() => {
+    const at = this.alarms.nextRing();
+    return at ? `${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}` : '';
+  });
+
+  /** Car mode / alarm open on top of the player; closing them comes back here */
+  openMode(mode: 'car' | 'alarm'): void {
+    this.sleepMenu.set(false);
+    if (mode === 'car') this.alarms.carMode.set(true);
+    else this.alarms.sheetOpen.set(true);
+  }
+
+  openSound(): void {
+    this.isExpanded.set(false);
+    this.backNav.navigate(['/settings']);
+    setTimeout(() => document.getElementById('sound')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
+  }
   private readonly lyricsService = inject(LyricsService);
   readonly lyrics = signal<Lyrics | null>(null);
   readonly lyricsLoading = signal(false);

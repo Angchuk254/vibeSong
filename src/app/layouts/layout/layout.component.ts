@@ -10,11 +10,13 @@ import { PlayerComponent } from '../../player/player.component';
 import { PlaylistPickerComponent } from '../../shared/playlist-picker/playlist-picker.component';
 import { VideoDockComponent } from '../../player/video-dock/video-dock.component';
 import { UpdateBannerComponent } from '../update-banner/update-banner.component';
+import { CarModeComponent } from '../../shared/car-mode/car-mode.component';
+import { AlarmComponent } from '../../shared/alarm/alarm.component';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, BottomNavComponent, PlayerComponent, PlaylistPickerComponent, VideoDockComponent, UpdateBannerComponent],
+  imports: [RouterOutlet, SidebarComponent, BottomNavComponent, PlayerComponent, PlaylistPickerComponent, VideoDockComponent, UpdateBannerComponent, CarModeComponent, AlarmComponent],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
@@ -30,6 +32,8 @@ import { UpdateBannerComponent } from '../update-banner/update-banner.component'
       <app-playlist-picker></app-playlist-picker>
       <app-video-dock></app-video-dock>
       <app-update-banner></app-update-banner>
+      <app-car-mode></app-car-mode>
+      <app-alarm></app-alarm>
     </div>
   `,
   styles: [`
