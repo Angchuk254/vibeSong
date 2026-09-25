@@ -1,11 +1,11 @@
 # Builds the app and publishes it to GitHub Pages:
 #   https://<user>.github.io/<repo>/
-# One-time setup: repo Settings → Pages → Source: "GitHub Actions".
+# Manual only: the main site is on Render (render.yaml), and the Pages
+# backup is currently published from the gh-pages branch. To use this
+# instead, set repo Settings → Pages → Source: "GitHub Actions" and run it.
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [clean-Web-React]
   workflow_dispatch:
 
 permissions:

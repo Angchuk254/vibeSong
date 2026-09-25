@@ -7,8 +7,8 @@ services:
     runtime: static
     name: yakbeats
     repo: https://github.com/Angchuk254/yakbeats
-    # The app's code lives on this branch; change it if you merge into another one
-    branch: claude/adoring-dirac-tdcyph
+    # Render builds and redeploys on every push to the main branch
+    branch: clean-Web-React
     autoDeploy: true
     pullRequestPreviewsEnabled: false
     buildCommand: npm ci --include=dev && npx ng build

@@ -37,7 +37,7 @@ Everything personal is stored in your browser's localStorage. There are no accou
 
 1. Sign in at [render.com](https://render.com) with GitHub.
 2. **New + → Blueprint** → choose **Angchuk254/yakbeats** → **Apply**.
-3. Render builds with Node 22 (`npm ci && ng build`), publishes `dist/vibeSong/browser`, and redeploys on every push to the branch named in `render.yaml`.
+3. Render builds with Node 22 (`npm ci && ng build`), publishes `dist/vibeSong/browser`, and redeploys on every push to `clean-Web-React`.
 
 The blueprint also sets the SPA rewrite (so deep links like `/artist/...` work) and cache headers (hashed files are cached forever; `index.html`, `ngsw.json` and the service worker are never cached, so updates arrive).
 
