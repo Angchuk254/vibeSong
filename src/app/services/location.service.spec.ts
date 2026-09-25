@@ -34,12 +34,19 @@ describe('LocationService', () => {
     expect(loc.label()).toBe('Thimphu, Bhutan');
   });
 
-  it('uses the cache instead of asking again', async () => {
-    localStorage.setItem('vo_location', JSON.stringify({ city: 'Kathmandu', region: 'Bagmati', country: 'Nepal', countryCode: 'NP', at: Date.now() }));
-    const fresh = TestBed.runInInjectionContext(() => new LocationService());
-    await fresh.refresh();
+  it('shows the saved city instantly but checks again after a refresh', async () => {
+    localStorage.setItem('vo_location', JSON.stringify({ city: 'Kathmandu', region: 'Bagmati', country: 'Nepal', countryCode: 'NP', source: 'ip', at: Date.now() }));
+    const reloaded = TestBed.runInInjectionContext(() => new LocationService());
+    expect(reloaded.label()).toBe('Kathmandu, Nepal'); // shown straight away
+    const done = reloaded.refresh();
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    http.expectOne('https://get.geojs.io/v1/ip/geo.json').flush({ city: 'Pokhara', region: 'Gandaki', country: 'Nepal', country_code: 'NP' });
+    await done;
+    expect(reloaded.label()).toBe('Pokhara, Nepal');
+
+    // Within the same session, a fresh city isn't looked up again
+    await reloaded.refresh();
     http.expectNone('https://get.geojs.io/v1/ip/geo.json');
-    expect(fresh.label()).toBe('Kathmandu, Nepal');
   });
 
   it('forgets the place when switched off', async () => {

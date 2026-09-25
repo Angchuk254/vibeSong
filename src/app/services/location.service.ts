@@ -6,8 +6,9 @@
 //    position is turned into a city name and replaces the IP guess.
 // 3. If the user blocks it or the device can't tell, the IP city stays and we
 //    don't ask again automatically (a tap on 🎯 can retry).
-// 4. Re-checked every hour (and when the app comes back to the foreground),
-//    because people move — with location allowed this uses GPS silently.
+// 4. Re-checked on every app start / refresh and every hour after that (and
+//    when the app comes back to the foreground), because people move — with
+//    location allowed this uses GPS silently. The last city shows meanwhile.
 // Only the city name is kept on-device; can be turned off.
 
 import { Injectable, inject, signal } from '@angular/core';
@@ -45,6 +46,8 @@ export class LocationService {
 
   private loading: Promise<void> | null = null;
   private watching = false;
+  /** Each app start / page refresh looks up the location again */
+  private checkedThisLoad = false;
 
   /** Device location is possible here (HTTPS + supported browser) */
   get canUseDevice(): boolean {
@@ -116,10 +119,11 @@ export class LocationService {
 
   private async run(): Promise<void> {
     const fresh = this.cached();
-    if (fresh) {
+    if (fresh && this.checkedThisLoad) {
       this.place.set(fresh);
       return;
     }
+    this.checkedThisLoad = true;
     // Keep showing the last known city while we look again (no flicker)
     const previous = this.place() || this.read<Place>(CACHE_KEY);
     if (previous && !this.place()) this.place.set(previous);
