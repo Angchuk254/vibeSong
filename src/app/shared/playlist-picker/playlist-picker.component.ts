@@ -2,7 +2,8 @@
 // vibeOnly — Add-to-playlist sheet
 // ============================================
 
-import { Component, HostListener, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { BackService } from '../../services/back.service';
 import { LibraryService } from '../../services';
 
 @Component({
@@ -84,6 +85,10 @@ import { LibraryService } from '../../services';
 export class PlaylistPickerComponent {
   readonly library = inject(LibraryService);
   readonly newName = signal('');
+
+  constructor() {
+    inject(BackService).bind(computed(() => !!this.library.pickerTrack()), () => this.library.closePicker());
+  }
 
   @HostListener('document:keydown.escape')
   onEscape(): void {

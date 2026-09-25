@@ -212,7 +212,7 @@ const EMPTY: Results = { songs: [], stations: [], artists: [], playlists: [] };
 
     .search-box {
       position: sticky;
-      top: 8px;
+      top: calc(8px + env(safe-area-inset-top, 0px));
       z-index: 20;
       display: flex;
       align-items: center;

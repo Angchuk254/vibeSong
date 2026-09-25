@@ -7,6 +7,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Location } from '@angular/common';
 import { TrackListItemComponent, SkeletonComponent } from '../../shared';
 import { LibraryService, PlayerService, MusicApiService } from '../../services';
+import { BackService } from '../../services/back.service';
 import { Track } from '../../models';
 
 @Component({
@@ -17,7 +18,7 @@ import { Track } from '../../models';
     <div class="pl-page vo-fade-in">
       @if (playlist(); as pl) {
         <header class="pl-header">
-          <button class="back-btn" (click)="location.back()" aria-label="Go back"><i class="bi bi-chevron-left"></i></button>
+          <button class="back-btn" (click)="back.goBack()" aria-label="Go back"><i class="bi bi-chevron-left"></i></button>
           <div class="pl-art">
             @if (pl.image) { <img [src]="pl.image" alt="" /> } @else { <i class="bi bi-music-note-list"></i> }
           </div>
@@ -142,6 +143,7 @@ export class PlaylistComponent implements OnInit {
   private musicApi = inject(MusicApiService);
   readonly router = inject(Router);
   readonly location = inject(Location);
+  readonly back = inject(BackService);
 
   readonly playlist = computed(() => this.library.getPlaylist(this.id()));
   readonly totalMinutes = computed(() =>

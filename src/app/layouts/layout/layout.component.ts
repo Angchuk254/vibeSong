@@ -48,6 +48,10 @@ import { UpdateBannerComponent } from '../update-banner/update-banner.component'
 
     .layout__content {
       padding: 20px 16px;
+      /* Room for the notch / status-bar area when the app runs full screen */
+      padding-top: calc(20px + env(safe-area-inset-top, 0px));
+      padding-left: calc(16px + env(safe-area-inset-left, 0px));
+      padding-right: calc(16px + env(safe-area-inset-right, 0px));
       /* Keep the last row clear of the mini player + bottom nav */
       padding-bottom: calc(var(--vo-safe-bottom) + env(safe-area-inset-bottom, 0px) + 16px);
       max-width: 1200px;

@@ -46,9 +46,9 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
                 <h3>Show my city</h3>
                 <p>
                   @if (location.enabled() && location.label()) {
-                    Showing "{{ location.label() }}" ({{ location.place()?.source === 'gps' ? 'device location' : 'from your IP' }}) ·
+                    Showing "{{ location.label() }}" ({{ location.place()?.source === 'gps' ? 'device location' : location.place()?.source === 'ip' ? 'from your IP' : 'default' }}) ·
                   }
-                  Uses your device location if you allow it, otherwise your internet connection (IP). Only the city name is kept on this device.
+                  Detected automatically: device location if allowed, otherwise your internet connection (IP), otherwise Leh. Only the city name is kept on this device.
                 </p>
               </div>
               <div class="toggle-switch" [class.active]="location.enabled()"><div class="toggle-knob"></div></div>
@@ -124,17 +124,6 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
               <div class="toggle-switch" [class.active]="player.autoFullVersion()"><div class="toggle-knob"></div></div>
             </div>
 
-            <details class="yt-help">
-              <summary>How to get a free key (about 3 minutes)</summary>
-              <ol>
-                <li>Open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud → YouTube Data API v3</a> and sign in with any Google account.</li>
-                <li>Create a project if asked (any name), then press <strong>Enable</strong>.</li>
-                <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <strong>Create credentials → API key</strong>, and copy it.</li>
-                <li>Recommended: edit the key → <em>Website restrictions</em> → add <code>{{ origin }}/*</code>, so only this site can use it.</li>
-                <li>Paste it above and press Save.</li>
-              </ol>
-              <p>It's free: about 100 searches a day. Results are remembered for a week, so repeat plays cost nothing. The key is stored only in this browser.</p>
-            </details>
           </div>
         </div>
 
@@ -406,15 +395,6 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
       &.bad { color: #ff6b6b; }
     }
 
-    .yt-help {
-      font-size: 0.85rem;
-      color: var(--vo-text-secondary);
-
-      summary { cursor: pointer; color: var(--vo-text-primary); font-weight: 600; }
-      ol { padding-left: 20px; margin: 10px 0; line-height: 1.7; }
-      a { color: var(--vo-accent-light); }
-      code { background: var(--vo-bg-input); padding: 1px 6px; border-radius: 4px; }
-    }
   `]
 })
 export class SettingsComponent {

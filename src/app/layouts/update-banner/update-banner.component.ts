@@ -16,7 +16,7 @@ import { UpdateService } from '../../services/update.service';
   styles: [`
     .update {
       position: fixed;
-      top: 12px;
+      top: calc(12px + env(safe-area-inset-top, 0px));
       left: 50%;
       transform: translateX(-50%);
       z-index: 5000;

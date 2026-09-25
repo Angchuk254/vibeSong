@@ -1,15 +1,15 @@
 // ============================================
 // vibeOnly — Location (for the Home greeting)
 // ============================================
-// 1. Shows the city from the IP address straight away (no prompt, approximate).
-// 2. Asks the browser for the device location once; if allowed, the GPS
-//    position is turned into a city name and replaces the IP guess.
-// 3. If the user blocks it or the device can't tell, the IP city stays and we
-//    don't ask again automatically (a tap on 🎯 can retry).
-// 4. Re-checked on every app start / refresh and every hour after that (and
-//    when the app comes back to the foreground), because people move — with
-//    location allowed this uses GPS silently. The last city shows meanwhile.
-// Only the city name is kept on-device; can be turned off.
+// Fully automatic, in this order:
+// 1. Device location (GPS) — asked for automatically on app start while the
+//    user hasn't answered; used silently once allowed.
+// 2. IP address — when location is blocked or unavailable (approximate:
+//    mobile networks often route through another state).
+// 3. Leh, Ladakh — the default when neither works (also shown instantly
+//    while detecting on first run).
+// Re-checked on every app start / refresh and every hour, because people
+// move. Only the city name is kept on-device; can be turned off.
 
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -21,14 +21,16 @@ export interface Place {
   region: string;
   country: string;
   countryCode: string;
-  /** 'gps' = from the device location, 'ip' = from the internet connection */
-  source?: 'gps' | 'ip';
+  /** 'gps' = device location, 'ip' = internet connection, 'default' = fallback */
+  source?: 'gps' | 'ip' | 'default';
 }
+
+/** Shown while detecting, and when neither GPS nor IP works */
+export const DEFAULT_PLACE: Place = { city: 'Leh', region: 'Ladakh', country: 'India', countryCode: 'IN', source: 'default' };
 
 const CACHE_KEY = 'vo_location';
 const ENABLED_KEY = 'vo_show_location';
 const DENIED_KEY = 'vo_geo_denied';
-const ASKED_KEY = 'vo_geo_asked';
 /** How long a city is trusted before checking again */
 export const LOCATION_TTL = 60 * 60 * 1000;
 const TTL = LOCATION_TTL;
@@ -38,7 +40,7 @@ export class LocationService {
   private http = inject(HttpClient);
 
   readonly enabled = signal(this.read<boolean>(ENABLED_KEY) !== false);
-  readonly place = signal<Place | null>(this.cached());
+  readonly place = signal<Place | null>(this.enabled() ? this.cached() || this.read<Place>(CACHE_KEY) || DEFAULT_PLACE : null);
   /** True while waiting for the device location / permission prompt */
   readonly locating = signal(false);
   /** The user blocked location access (we then stick to the IP city) */
@@ -78,22 +80,6 @@ export class LocationService {
     return this.loading;
   }
 
-  /** User tapped 🎯 — ask for the precise location again */
-  async usePreciseLocation(): Promise<boolean> {
-    this.remove(DENIED_KEY);
-    this.denied.set(false);
-    const p = await this.fromDevice();
-    if (p) {
-      this.save(p);
-      notify(`📍 Got it — vibing from ${this.label(p)}`);
-    } else if (this.denied()) {
-      notify('Location is blocked for this site. Tap the 🔒 next to the address bar → Location → Allow, then try again.');
-    } else {
-      notify("Couldn't get your location right now — keeping the city from your internet connection.");
-    }
-    return !!p;
-  }
-
   /** "Leh, Ladakh" / "Kathmandu, Nepal" */
   label(p: Place | null = this.place()): string {
     if (!p?.city) return p?.country || '';
@@ -123,38 +109,40 @@ export class LocationService {
       this.place.set(fresh);
       return;
     }
+    const isAppStart = !this.checkedThisLoad;
     this.checkedThisLoad = true;
-    // Keep showing the last known city while we look again (no flicker)
-    const previous = this.place() || this.read<Place>(CACHE_KEY);
-    if (previous && !this.place()) this.place.set(previous);
 
-    const permission = this.canUseDevice && !this.denied() ? await this.permission() : 'denied';
+    // Keep showing the last known city (or Leh) while we look again — no flicker
+    const previous = this.place() || this.read<Place>(CACHE_KEY) || DEFAULT_PLACE;
+    this.place.set(previous);
 
-    // Location already allowed: go straight to GPS, silently
+    // 1. Device location
+    const permission = this.canUseDevice ? await this.permission() : 'denied';
     if (permission === 'granted') {
+      // Allowed (maybe later, in the phone's settings): forget any old refusal
+      this.denied.set(false);
+      this.remove(DENIED_KEY);
+    }
+    const mayAsk = isAppStart && !this.denied() && (permission === 'prompt' || permission === 'unknown');
+    if (permission === 'granted' || mayAsk) {
       const gps = await this.fromDevice();
       if (gps) return this.update(gps, previous);
     }
 
-    // Otherwise (or if GPS failed) use the IP address
+    // 2. IP address
     const ip = await this.fromIp();
-    if (ip) this.update(ip, previous);
+    if (ip) return this.update(ip, previous);
 
-    // Ask for the device location automatically only once, ever — browsers
-    // block sites that keep prompting. After that, 🎯 retries on demand.
-    const askedBefore = this.read<boolean>(ASKED_KEY) === true;
-    if (!askedBefore && (permission === 'prompt' || permission === 'unknown')) {
-      this.write(ASKED_KEY, true);
-      const gps = await this.fromDevice();
-      if (gps) this.update(gps, this.place());
-    }
+    // 3. Default
+    if (!previous || previous.source === 'default') this.update(DEFAULT_PLACE, null);
   }
 
   /** Save the new place and say so if the city changed */
   private update(p: Place, previous: Place | null): void {
     if (!this.enabled()) return;
     this.save(p);
-    if (previous?.city && p.city && previous.city.toLowerCase() !== p.city.toLowerCase()) {
+    const real = (x: Place | null) => !!x?.city && x.source !== 'default';
+    if (real(previous) && real(p) && previous!.city.toLowerCase() !== p.city.toLowerCase()) {
       notify(`📍 New spot unlocked: now vibing from ${this.label(p)}`);
     }
   }

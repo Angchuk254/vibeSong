@@ -3,7 +3,7 @@
 // ============================================
 
 import { Component, ElementRef, HostListener, inject, input, output, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { BackService } from '../../services/back.service';
 import { Track } from '../../models';
 import { PlayerService, LibraryService, MusicApiService } from '../../services';
 
@@ -75,6 +75,12 @@ export class TrackMenuComponent {
   private host = inject(ElementRef<HTMLElement>);
   readonly open = signal(false);
 
+  private back = inject(BackService);
+
+  constructor() {
+    this.back.bind(this.open, () => this.open.set(false));
+  }
+
   @HostListener('document:click', ['$event'])
   onDocClick(e: Event): void {
     if (this.open() && !this.host.nativeElement.contains(e.target as Node)) this.close();
@@ -90,12 +96,10 @@ export class TrackMenuComponent {
     this.open.update((v) => !v);
   }
 
-  private router = inject(Router);
-
   goToArtist(): void {
     const ref = this.track().artistRef;
     this.close();
-    if (ref) this.router.navigate(['/artist', ref]);
+    if (ref) this.back.navigate(['/artist', ref]);
   }
 
   youtube(): string {

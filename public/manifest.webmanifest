@@ -2,13 +2,21 @@
   "name": "vibeOnly — Free Music, No Ads",
   "short_name": "vibeOnly",
   "description": "Free, ad-free music player: full songs, playlists, lyrics, radio and every genre. No login.",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#0a0a1a",
   "theme_color": "#0a0a1a",
-  "categories": ["music", "entertainment"],
+  "categories": [
+    "music",
+    "entertainment"
+  ],
   "icons": [
     {
       "src": "icons/icon-72x72.png",

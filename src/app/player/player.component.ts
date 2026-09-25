@@ -3,9 +3,9 @@
 // ============================================
 
 import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
 import { PlayerService, StorageService, LibraryService, LyricsService, MusicApiService } from '../services';
 import { Lyrics } from '../services/lyrics.service';
+import { BackService } from '../services/back.service';
 import { TrackListItemComponent } from '../shared/track-list-item/track-list-item.component';
 import { sourceMeta } from '../shared/source-badge';
 import { Track } from '../models';
@@ -1006,8 +1006,12 @@ import { Track } from '../models';
 
     @media (max-width: 768px) {
       .player__expanded {
-        padding: 12px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+        padding: calc(12px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
       }
+    }
+
+    .player__expanded {
+      padding-top: calc(20px + env(safe-area-inset-top, 0px));
     }
   `],
 })
@@ -1020,7 +1024,7 @@ export class PlayerComponent {
   readonly isExpanded = this.player.playerExpanded;
   readonly recentTracks = signal<Track[]>([]);
   readonly panel = signal<'queue' | 'lyrics' | 'recent'>('queue');
-  private readonly router = inject(Router);
+  private readonly backNav = inject(BackService);
   private readonly lyricsService = inject(LyricsService);
   readonly lyrics = signal<Lyrics | null>(null);
   readonly lyricsLoading = signal(false);
@@ -1048,6 +1052,11 @@ export class PlayerComponent {
   });
 
   constructor() {
+    // Phone back button closes the sleep menu, then the full-screen player
+    const back = this.backNav;
+    back.bind(this.isExpanded, () => this.isExpanded.set(false));
+    back.bind(this.sleepMenu, () => this.sleepMenu.set(false));
+
     // Keeps the sleep countdown label fresh
     const tick = setInterval(() => this.now.set(Date.now()), 30000);
     inject(DestroyRef).onDestroy(() => clearInterval(tick));
@@ -1079,7 +1088,7 @@ export class PlayerComponent {
 
   openArtist(ref: string): void {
     this.isExpanded.set(false);
-    this.router.navigate(['/artist', ref]);
+    this.backNav.navigate(['/artist', ref]);
   }
 
   youtube(track: Track): string {

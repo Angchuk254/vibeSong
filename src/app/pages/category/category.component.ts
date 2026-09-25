@@ -10,6 +10,7 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { TrackCardComponent, SkeletonComponent } from '../../shared';
 import { MusicApiService, PlayerService } from '../../services';
+import { BackService } from '../../services/back.service';
 import { Track, MusicCategory } from '../../models';
 import { MUSIC_CATEGORIES } from '../../core/categories.data';
 
@@ -364,7 +365,9 @@ export class CategoryComponent implements OnInit, OnDestroy {
       });
   }
 
+  private back = inject(BackService);
+
   goBack(): void {
-    this.location.back();
+    this.back.goBack();
   }
 }

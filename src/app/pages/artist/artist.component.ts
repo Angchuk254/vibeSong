@@ -9,6 +9,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { switchMap, tap } from 'rxjs/operators';
 import { TrackListItemComponent, SkeletonComponent } from '../../shared';
 import { MusicApiService, PlayerService, LibraryService } from '../../services';
+import { BackService } from '../../services/back.service';
 import { ArtistSummary, Track } from '../../models';
 
 @Component({
@@ -19,7 +20,7 @@ import { ArtistSummary, Track } from '../../models';
     <div class="artist-page vo-fade-in">
       <header class="hero" [style.background-image]="artist()?.cover ? 'url(' + artist()!.cover + ')' : null">
         <div class="hero__shade"></div>
-        <button class="back-btn" (click)="location.back()" aria-label="Go back"><i class="bi bi-chevron-left"></i></button>
+        <button class="back-btn" (click)="back.goBack()" aria-label="Go back"><i class="bi bi-chevron-left"></i></button>
         <div class="hero__content">
           <div class="hero__avatar">
             @if (artist()?.image) { <img [src]="artist()!.image" alt="" /> } @else { <i class="bi bi-person-fill"></i> }
@@ -118,6 +119,7 @@ export class ArtistComponent implements OnInit, OnDestroy {
   readonly player = inject(PlayerService);
   readonly library = inject(LibraryService);
   readonly location = inject(Location);
+  readonly back = inject(BackService);
 
   readonly artist = signal<ArtistSummary | null>(null);
   readonly tracks = signal<Track[]>([]);
