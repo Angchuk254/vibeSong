@@ -18,6 +18,7 @@ const KEYS = {
   SEARCHES: 'vo_recent_searches',
   HIDE_PREVIEWS: 'vo_hide_previews',
   AUTO_FULL: 'vo_auto_full',
+  OFFLINE_SWITCH: 'vo_offline_switch',
 } as const;
 
 export interface PlayerSession {
@@ -211,6 +212,15 @@ export class StorageService {
 
   setAutoFull(on: boolean): void {
     this.setItem(KEYS.AUTO_FULL, on);
+  }
+
+  /** Play My Songs automatically when the internet drops (default on) */
+  getOfflineSwitch(): boolean {
+    return this.getItem<boolean>(KEYS.OFFLINE_SWITCH) !== false;
+  }
+
+  setOfflineSwitch(on: boolean): void {
+    this.setItem(KEYS.OFFLINE_SWITCH, on);
   }
 
   // ── Recent searches ──

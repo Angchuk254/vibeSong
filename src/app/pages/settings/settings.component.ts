@@ -83,6 +83,20 @@ import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, Play
                 <div class="toggle-knob"></div>
               </div>
             </div>
+            <div class="setting-row" tabindex="0" role="switch" [attr.aria-checked]="player.offlineSwitch()"
+                 (click)="player.setOfflineSwitch(!player.offlineSwitch())"
+                 (keydown.enter)="player.setOfflineSwitch(!player.offlineSwitch())">
+              <div class="setting-icon appearance">
+                <i class="bi bi-wifi-off"></i>
+              </div>
+              <div class="setting-label">
+                <h3>Keep playing offline</h3>
+                <p>If the internet drops, play your My Songs files, then go back to the song you were on when you're online</p>
+              </div>
+              <div class="toggle-switch" [class.active]="player.offlineSwitch()">
+                <div class="toggle-knob"></div>
+              </div>
+            </div>
             <div class="setting-row" tabindex="0" role="button" (click)="openDevice()" (keydown.enter)="openDevice()">
               <div class="setting-icon appearance">
                 <i class="bi bi-phone"></i>
