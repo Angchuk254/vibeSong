@@ -5,6 +5,7 @@ import { ShareCardComponent } from '../../shared/share-card/share-card.component
 import { ThemeService, MusicApiService, DeviceMusicService, YouTubeService, PlayerService, LocationService } from '../../services';
 import { AudioFxService, EQ_BANDS, EQ_PRESETS, CROSSFADE_OPTIONS } from '../../services/audio-fx.service';
 import { AlarmService } from '../../services/alarm.service';
+import { DataSaverService } from '../../services/data-saver.service';
 
 @Component({
   selector: 'app-settings',
@@ -108,6 +109,47 @@ import { AlarmService } from '../../services/alarm.service';
                 <p>{{ device.count() }} songs · add your own MP3s</p>
               </div>
               <i class="bi bi-chevron-right arrow"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data saver -->
+        <div class="settings-section" id="data">
+          <h2 class="section-title">Data saver</h2>
+          <div class="settings-card glass-panel">
+            <div class="setting-row setting-row--static">
+              <div class="setting-icon appearance"><i class="bi bi-reception-2"></i></div>
+              <div class="setting-label">
+                <h3>Save mobile data</h3>
+                <p>{{ saver.reason() }}</p>
+              </div>
+              @if (saver.active()) { <span class="ds-badge"><i class="bi bi-leaf"></i> Saving</span> }
+            </div>
+            <div class="eq-presets eq-presets--row" role="group" aria-label="Data saver mode">
+              <button class="eq-chip" [class.on]="saver.mode() === 'auto'" (click)="saver.setMode('auto')">Auto (mobile data)</button>
+              <button class="eq-chip" [class.on]="saver.mode() === 'on'" (click)="saver.setMode('on')">Always</button>
+              <button class="eq-chip" [class.on]="saver.mode() === 'off'" (click)="saver.setMode('off')">Off</button>
+            </div>
+            <ul class="ds-list">
+              <li><i class="bi bi-image"></i> Small cover pictures</li>
+              <li><i class="bi bi-broadcast"></i> Lighter radio streams (≤128 kbps) first</li>
+              <li><i class="bi bi-youtube"></i> Previews aren't switched to YouTube videos automatically</li>
+            </ul>
+            <div class="ds-usage">
+              <div class="ds-usage__today">
+                <span>Used today</span>
+                <strong>≈ {{ fmt(total(saver.today())) }}</strong>
+              </div>
+              <div class="ds-usage__split">
+                <span><i class="bi bi-reception-4"></i> Mobile {{ fmt(saver.today().mobile) }}</span>
+                <span><i class="bi bi-wifi"></i> Wi-Fi {{ fmt(saver.today().wifi) }}</span>
+                @if (saver.today().unknown > 0) { <span><i class="bi bi-question-circle"></i> Other {{ fmt(saver.today().unknown) }}</span> }
+              </div>
+              <div class="ds-usage__week">
+                Last 7 days ≈ {{ fmt(saver.week()) }}
+                <button class="ds-reset" (click)="saver.resetUsage()">Reset</button>
+              </div>
+              <p class="ds-note">An estimate from what played and for how long. Songs saved in My Songs use no data.</p>
             </div>
           </div>
         </div>
@@ -406,6 +448,22 @@ import { AlarmService } from '../../services/alarm.service';
       &.appearance { background: rgba(108, 92, 231, 0.15); color: var(--vo-accent-light); }
     }
 
+    .ds-badge {
+      display: inline-flex; align-items: center; gap: 5px; flex: none;
+      background: rgba(85, 239, 196, .15); color: var(--vo-secondary-light);
+      border-radius: 999px; padding: 4px 10px; font-size: .75rem; font-weight: 700;
+    }
+    .ds-list { list-style: none; margin: 0; padding: 0 16px 12px; display: grid; gap: 6px; }
+    .ds-list li { display: flex; gap: 8px; align-items: center; font-size: .82rem; color: var(--vo-text-secondary); }
+    .ds-list i { color: var(--vo-accent-light); }
+    .ds-usage { margin: 0 16px 16px; padding: 14px; border-radius: 12px; background: var(--vo-bg-input); border: 1px solid var(--vo-border); }
+    .ds-usage__today { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .ds-usage__today span { color: var(--vo-text-secondary); font-size: .85rem; }
+    .ds-usage__today strong { font: 700 1.4rem var(--vo-font-display); }
+    .ds-usage__split { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-size: .8rem; color: var(--vo-text-secondary); }
+    .ds-usage__week { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-size: .82rem; color: var(--vo-text-secondary); }
+    .ds-reset { background: none; border: 0; color: var(--vo-accent-light); cursor: pointer; font-size: .8rem; padding: 4px; }
+    .ds-note { margin: 8px 0 0; font-size: .74rem; color: var(--vo-text-muted); }
     .setting-row--static { cursor: default; }
     .setting-row.disabled { opacity: .5; pointer-events: none; }
     .eq { padding: 4px 16px 16px; }
@@ -548,6 +606,12 @@ export class SettingsComponent {
   readonly location = inject(LocationService);
   readonly fx = inject(AudioFxService);
   readonly alarms = inject(AlarmService);
+  readonly saver = inject(DataSaverService);
+  readonly fmt = DataSaverService.format;
+
+  total(d: { mobile: number; wifi: number; unknown: number }): number {
+    return d.mobile + d.wifi + d.unknown;
+  }
   readonly presets = EQ_PRESETS;
   readonly bands = EQ_BANDS;
   readonly crossfades = CROSSFADE_OPTIONS;

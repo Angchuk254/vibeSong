@@ -78,5 +78,72 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Himalayan Radio",
+      "short_name": "Radio",
+      "description": "Play live Himalayan radio",
+      "url": "./?shortcut=radio",
+      "icons": [
+        {
+          "src": "icons/shortcut-radio.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Liked Songs",
+      "short_name": "Liked",
+      "description": "Play your Liked Songs",
+      "url": "./?shortcut=liked",
+      "icons": [
+        {
+          "src": "icons/shortcut-liked.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Car mode",
+      "short_name": "Car mode",
+      "description": "Big buttons for driving",
+      "url": "./?shortcut=car",
+      "icons": [
+        {
+          "src": "icons/shortcut-car.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "My Songs",
+      "short_name": "My Songs",
+      "description": "Songs saved on this phone — play offline",
+      "url": "./?shortcut=mysongs",
+      "icons": [
+        {
+          "src": "icons/shortcut-mysongs.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "description": "Find a song, artist or station",
+      "url": "./?shortcut=search",
+      "icons": [
+        {
+          "src": "icons/shortcut-search.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

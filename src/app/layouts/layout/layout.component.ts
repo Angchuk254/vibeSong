@@ -2,7 +2,8 @@
 // YakBeats — Main Layout Component
 // ============================================
 
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { ShortcutService } from '../../services/shortcut.service';
 import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { BottomNavComponent } from '../bottom-nav/bottom-nav.component';
@@ -73,4 +74,8 @@ import { AlarmComponent } from '../../shared/alarm/alarm.component';
     }
   `],
 })
-export class LayoutComponent {}
+export class LayoutComponent {
+  constructor() {
+    inject(ShortcutService).init();
+  }
+}

@@ -2,6 +2,7 @@
 // YakBeats — Track Card Component
 // ============================================
 
+import { ArtPipe } from '../art.pipe';
 import { Component, input, output, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Track } from '../../models';
@@ -12,12 +13,12 @@ import { sourceMeta } from '../source-badge';
 @Component({
   selector: 'app-track-card',
   standalone: true,
-  imports: [DurationPipe],
+  imports: [DurationPipe, ArtPipe],
   template: `
     <div class="track-card" tabindex="0" role="button" [attr.aria-label]="'Play ' + track().name"
          (click)="onPlay()" (keydown.enter)="onPlay()" [class.is-playing]="isCurrentlyPlaying()">
       <div class="track-card__image">
-        <img [src]="track().album_image || track().image || 'icons/icon-192x192.png'"
+        <img [src]="track().album_image || track().image || 'icons/icon-192x192.png' | art"
              [alt]="track().name"
              loading="lazy" />
         <div class="track-card__overlay">

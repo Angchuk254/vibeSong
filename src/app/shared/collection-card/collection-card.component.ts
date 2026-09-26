@@ -2,6 +2,7 @@
 // YakBeats — Playlist / Album Card
 // ============================================
 
+import { ArtPipe } from '../art.pipe';
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Collection } from '../../models';
@@ -9,12 +10,12 @@ import { Collection } from '../../models';
 @Component({
   selector: 'app-collection-card',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, ArtPipe],
   template: `
     <a class="coll-card" [routerLink]="['/collection', collection().ref]">
       <span class="coll-card__img">
         @if (collection().image) {
-          <img [src]="collection().image" [alt]="collection().name" loading="lazy" />
+          <img [src]="collection().image | art" [alt]="collection().name" loading="lazy" />
         } @else {
           <i class="bi bi-music-note-list"></i>
         }

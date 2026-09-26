@@ -28,6 +28,8 @@ export interface Track {
   isPreview?: boolean;
   /** Live stream with no fixed duration (radio) */
   isLive?: boolean;
+  /** Stream bitrate in kbps, when known (radio) */
+  bitrate?: number;
   /** Link to the artist page, e.g. "audius:abc12" or "itunes:1234" */
   artistRef?: string;
   /** Where the full song can be heard (e.g. Apple Music page for a preview) */

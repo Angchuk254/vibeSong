@@ -4,6 +4,7 @@ import { Observable, of, forkJoin } from 'rxjs';
 import { map, catchError, switchMap, timeout } from 'rxjs/operators';
 import { Track } from '../../models';
 import { MusicProvider } from './music-provider.interface';
+import { DataSaverService } from '../../services/data-saver.service';
 
 @Injectable({ providedIn: 'root' })
 export class RadioProvider implements MusicProvider {
@@ -11,6 +12,7 @@ export class RadioProvider implements MusicProvider {
   name = 'Radio Browser';
 
   private readonly http = inject(HttpClient);
+  private readonly saver = inject(DataSaverService);
   // Mirrors are tried in order if one is down
   private readonly mirrors = [
     'https://de1.api.radio-browser.info',
@@ -148,10 +150,9 @@ export class RadioProvider implements MusicProvider {
     return tryMirror(0).pipe(
       map(res => {
         if (!Array.isArray(res)) return [];
-        return res
-          .filter(station => this.isPlayable(station))
-          .slice(0, requested)
-          .map(station => this.mapToTrack(station));
+        const playable = res.filter(station => this.isPlayable(station)).map(station => this.mapToTrack(station));
+        // Data saver: lighter streams first, so they make the cut
+        return this.saver.preferLight(playable).slice(0, requested);
       }),
       catchError(err => {
         console.error('[RadioProvider] Error:', err);
@@ -195,7 +196,8 @@ export class RadioProvider implements MusicProvider {
       position: 1,
       tags: station.tags || '',
       provider: this.id,
-      isLive: true
+      isLive: true,
+      bitrate: Number(station.bitrate) || undefined,
     };
   }
 }

@@ -2,6 +2,7 @@
 // YakBeats — Track List Item Component
 // ============================================
 
+import { ArtPipe } from '../art.pipe';
 import { Component, input, output, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Track } from '../../models';
@@ -13,7 +14,7 @@ import { sourceMeta } from '../source-badge';
 @Component({
   selector: 'app-track-list-item',
   standalone: true,
-  imports: [DurationPipe, TrackMenuComponent],
+  imports: [DurationPipe, TrackMenuComponent, ArtPipe],
   template: `
     <div class="track-item" 
          (click)="onPlay()" 
@@ -33,7 +34,7 @@ import { sourceMeta } from '../source-badge';
         }
       </div>
       <img class="track-item__img"
-           [src]="track().album_image || track().image || 'icons/icon-192x192.png'"
+           [src]="track().album_image || track().image || 'icons/icon-192x192.png' | art"
            [alt]="track().name"
            loading="lazy" />
       <div class="track-item__info">
