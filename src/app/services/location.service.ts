@@ -9,7 +9,8 @@
 // 3. Leh, Ladakh — the default when neither works (also shown instantly
 //    while detecting on first run).
 // Re-checked on every app start / refresh and every hour, because people
-// move. Only the city name is kept on-device; can be turned off.
+// move. Only the city and a rough (≈1 km) position for the weather are kept
+// on-device; can be turned off.
 
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -23,10 +24,13 @@ export interface Place {
   countryCode: string;
   /** 'gps' = device location, 'ip' = internet connection, 'default' = fallback */
   source?: 'gps' | 'ip' | 'default';
+  /** Rough position (2 decimals ≈ 1 km), for the weather */
+  lat?: number;
+  lon?: number;
 }
 
 /** Shown while detecting, and when neither GPS nor IP works */
-export const DEFAULT_PLACE: Place = { city: 'Leh', region: 'Ladakh', country: 'India', countryCode: 'IN', source: 'default' };
+export const DEFAULT_PLACE: Place = { city: 'Leh', region: 'Ladakh', country: 'India', countryCode: 'IN', source: 'default', lat: 34.16, lon: 77.58 };
 
 const CACHE_KEY = 'vo_location';
 const ENABLED_KEY = 'vo_show_location';
@@ -208,14 +212,14 @@ export class LocationService {
       ],
     ];
     const p = await this.firstOf(providers);
-    return p ? { ...p, source: 'gps' } : null;
+    return p ? { ...p, source: 'gps', lat: this.round(lat), lon: this.round(lon) } : null;
   }
 
   private async fromIp(): Promise<Place | null> {
     const p = await this.firstOf([
-      ['https://get.geojs.io/v1/ip/geo.json', (r) => r?.country ? { city: r.city || '', region: r.region || '', country: r.country, countryCode: r.country_code || '' } : null],
-      ['https://ipwho.is/', (r) => r?.success !== false && r?.country ? { city: r.city || '', region: r.region || '', country: r.country, countryCode: r.country_code || '' } : null],
-      ['https://ipapi.co/json/', (r) => r?.country_name ? { city: r.city || '', region: r.region || '', country: r.country_name, countryCode: r.country_code || '' } : null],
+      ['https://get.geojs.io/v1/ip/geo.json', (r) => r?.country ? { city: r.city || '', region: r.region || '', country: r.country, countryCode: r.country_code || '', ...this.coords(r.latitude, r.longitude) } : null],
+      ['https://ipwho.is/', (r) => r?.success !== false && r?.country ? { city: r.city || '', region: r.region || '', country: r.country, countryCode: r.country_code || '', ...this.coords(r.latitude, r.longitude) } : null],
+      ['https://ipapi.co/json/', (r) => r?.country_name ? { city: r.city || '', region: r.region || '', country: r.country_name, countryCode: r.country_code || '', ...this.coords(r.latitude, r.longitude) } : null],
     ]);
     return p ? { ...p, source: 'ip' } : null;
   }
@@ -231,6 +235,17 @@ export class LocationService {
       }
     }
     return null;
+  }
+
+  private round(n: number): number {
+    return Math.round(n * 100) / 100;
+  }
+
+  /** Provider latitude/longitude (numbers or strings) → rounded, or nothing */
+  private coords(lat: unknown, lon: unknown): { lat?: number; lon?: number } {
+    const a = Number(lat);
+    const b = Number(lon);
+    return lat != null && lon != null && isFinite(a) && isFinite(b) && (a || b) ? { lat: this.round(a), lon: this.round(b) } : {};
   }
 
   private save(p: Place): void {

@@ -2,6 +2,7 @@
 // YakBeats — Home Page Component
 // ============================================
 
+import { WeatherCardComponent } from '../../shared/weather-card/weather-card.component';
 import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
@@ -25,7 +26,7 @@ interface Row {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterLink, TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent],
+  imports: [CommonModule, RouterLink, TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent, WeatherCardComponent],
   template: `
     <div class="home vo-fade-in">
       <!-- Brand (phones: the sidebar with the logo is hidden) -->
@@ -40,6 +41,7 @@ interface Row {
           @if (placeLabel()) {
             <p class="home__place">Vibing from <strong>{{ placeLabel() }}</strong></p>
           }
+          <app-weather-card></app-weather-card>
           <div class="home__vibe">
             <p class="home__vibe-text">{{ vibe() }}</p>
             <button class="home__vibe-shuffle" (click)="vibeSalt.set(vibeSalt() + 1)" aria-label="Another message" title="Another message">

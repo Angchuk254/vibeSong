@@ -59,7 +59,7 @@ import { AlarmService } from '../../services/alarm.service';
                   @if (location.enabled() && location.label()) {
                     Showing "{{ location.label() }}" ({{ location.place()?.source === 'gps' ? 'device location' : location.place()?.source === 'ip' ? 'from your IP' : 'default' }}) ·
                   }
-                  Detected automatically: device location if allowed, otherwise your internet connection (IP), otherwise Leh. Only the city name is kept on this device.
+                  Detected automatically: device location if allowed, otherwise your internet connection (IP), otherwise Leh. Only the city and a rough position for the weather are kept on this device.
                 </p>
               </div>
               <div class="toggle-switch" [class.active]="location.enabled()"><div class="toggle-knob"></div></div>
