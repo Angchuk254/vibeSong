@@ -2,8 +2,9 @@
 // YakBeats — Live weather + a music mood to match
 // ============================================
 // Current conditions from Open-Meteo (free, no key) for the place the Home
-// greeting already knows (device location, else IP, else Leh). Checked every
-// 10 minutes while the app is open and whenever you come back to it.
+// greeting finds (device location, else IP). Fetched fresh every time the
+// app opens, every hour, and when you come back to it; when there's no
+// reading (offline, location unknown) nothing about weather is shown.
 
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -47,8 +48,12 @@ export interface WeatherMood {
   scene: Scene;
 }
 
-const CACHE_KEY = 'vo_weather';
-const FRESH_MS = 10 * 60 * 1000;
+/** Where older versions kept the last reading (removed) */
+const OLD_CACHE_KEY = 'vo_weather';
+const HOUR = 60 * 60 * 1000;
+/** Coming back to the app after this long checks again */
+const RESUME_MS = 5 * 60 * 1000;
+const RETRY_MS = 5 * 60 * 1000;
 
 /** WMO weather code → words + icon + scene */
 function describe(code: number, isDay: boolean): { label: string; icon: string; scene: Scene } {
@@ -216,7 +221,8 @@ export class WeatherService {
   private http = inject(HttpClient);
   private location = inject(LocationService);
 
-  readonly weather = signal<Weather | null>(this.cached());
+  /** Only ever a fresh reading from this session; null = show nothing about weather */
+  readonly weather = signal<Weather | null>(null);
   readonly loading = signal(false);
   readonly mood = computed(() => {
     const w = this.weather();
@@ -227,29 +233,57 @@ export class WeatherService {
   readonly tick = signal(0);
 
   private inFlight: Promise<void> | null = null;
+  /** The first location check of this app start has finished */
+  private ready = false;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    // New place → new weather
-    effect(() => {
-      const p = this.location.place();
-      if (p) untracked(() => this.refresh());
+    // Old versions kept the last reading; never show weather that isn't fresh
+    try {
+      localStorage.removeItem(OLD_CACHE_KEY);
+    } catch {
+      /* ignore */
+    }
+
+    // App opened / refreshed: find where we are now (GPS, else IP), then fetch
+    this.location.refresh().finally(() => {
+      this.ready = true;
+      this.refresh(true);
     });
+
+    // The place changed later (the hourly location check found somewhere new)
+    effect(() => {
+      this.location.place();
+      this.location.enabled();
+      if (this.ready) untracked(() => this.refresh());
+    });
+
     setInterval(() => {
       this.tick.update((t) => t + 1);
-      this.refresh();
+      const w = this.weather();
+      if (this.ready && w && Date.now() - w.at >= HOUR) this.hourly();
     }, 60 * 1000);
-    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && this.refresh());
-    window.addEventListener('online', () => this.refresh(true));
+
+    // Back in the app after a while: check again
+    document.addEventListener('visibilitychange', () => {
+      const w = this.weather();
+      if (document.visibilityState === 'visible' && this.ready && (!w || Date.now() - w.at >= RESUME_MS)) this.hourly();
+    });
+    window.addEventListener('online', () => this.ready && this.refresh(true));
   }
 
-  /** Fetch again if the reading is old or for somewhere else */
+  /** Fetch again if forced, the reading is an hour old, or we've moved */
   refresh(force = false): Promise<void> {
     const place = this.location.place();
-    if (!place || !this.location.enabled()) return Promise.resolve();
+    if (!place || !this.location.enabled() || !this.usable(place)) {
+      // Location off, or we don't really know where you are: no weather at all
+      this.weather.set(null);
+      return Promise.resolve();
+    }
     const w = this.weather();
     const moved = w && place.lat != null && place.lon != null && (Math.abs(w.lat - place.lat) > 0.05 || Math.abs(w.lon - place.lon) > 0.05);
     const otherCity = w && place.lat == null && w.city !== place.city;
-    const stale = !w || Date.now() - w.at > FRESH_MS;
+    const stale = !w || Date.now() - w.at >= HOUR;
     if (!force && !moved && !otherCity && !stale) return Promise.resolve();
     if (!this.inFlight) {
       this.inFlight = this.load(place).finally(() => (this.inFlight = null));
@@ -266,12 +300,24 @@ export class WeatherService {
     return mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)} h ago`;
   }
 
+  /** Every hour: where are we now (GPS / IP), then that place's weather */
+  private async hourly(): Promise<void> {
+    await this.location.refresh().catch(() => undefined);
+    await this.refresh(true);
+  }
+
+  /** Weather only for a place found by GPS or IP — not the Leh fallback */
+  private usable(p: Place): boolean {
+    return p.source === 'gps' || p.source === 'ip';
+  }
+
   private async load(place: Place): Promise<void> {
     this.loading.set(true);
+    let ok = false;
     try {
       let { lat, lon } = place;
       if (lat == null || lon == null) {
-        // An older saved place without a position: look the city up
+        // A saved place without a position: look the city up
         const g = await firstValueFrom(
           this.http
             .get<any>(`https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name=${encodeURIComponent(place.city)}`)
@@ -292,7 +338,7 @@ export class WeatherService {
       const r = await firstValueFrom(this.http.get<any>(`https://api.open-meteo.com/v1/forecast?${params}`).pipe(timeout(10000)));
       const c = r?.current;
       if (!c || typeof c.temperature_2m !== 'number') return;
-      const w: Weather = {
+      this.weather.set({
         temp: c.temperature_2m,
         feels: c.apparent_temperature ?? c.temperature_2m,
         code: c.weather_code ?? 0,
@@ -309,27 +355,25 @@ export class WeatherService {
         lon: Number(lon),
         city: place.city,
         at: Date.now(),
-      };
-      this.weather.set(w);
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(w));
-      } catch {
-        /* ignore */
-      }
+      });
+      ok = true;
     } catch {
-      /* offline or service down: keep the last reading */
+      /* offline or service down */
     } finally {
       this.loading.set(false);
-    }
-  }
-
-  private cached(): Weather | null {
-    try {
-      const w = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null') as Weather | null;
-      // Older than 6 hours isn't worth showing
-      return w && Date.now() - w.at < 6 * 3600 * 1000 ? w : null;
-    } catch {
-      return null;
+      if (ok) {
+        if (this.retryTimer) clearTimeout(this.retryTimer);
+        this.retryTimer = null;
+      } else {
+        // No weather: hide everything about it, and try again in a few minutes
+        this.weather.set(null);
+        if (!this.retryTimer) {
+          this.retryTimer = setTimeout(() => {
+            this.retryTimer = null;
+            this.refresh(true);
+          }, RETRY_MS);
+        }
+      }
     }
   }
 }
