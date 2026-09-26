@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Weather, WeatherService, moodFor, placeMinutes } from './weather.service';
 import { LocationService, Place } from './location.service';
 
-const leh: Place = { city: 'Leh', region: 'Ladakh', country: 'India', countryCode: 'IN', lat: 34.16, lon: 77.58 };
+const leh: Place = { city: 'Leh', region: 'Ladakh', country: 'India', countryCode: 'IN', source: 'gps', lat: 34.16, lon: 77.58 };
 const w = (over: Partial<Weather>): Weather => ({
   temp: 15, feels: 14, code: 0, isDay: true, wind: 5, humidity: 40, precip: 0, lat: 34.16, lon: 77.58, city: 'Leh', at: Date.now(), ...over,
 });
@@ -69,12 +69,12 @@ describe('WeatherService', () => {
     await done;
     expect(svc.weather()!.temp).toBe(-3.4);
     expect(svc.mood()!.headline).toContain('Snowing in Leh');
-    expect(JSON.parse(localStorage.getItem('vo_weather')!).code).toBe(71);
+    expect(localStorage.getItem('vo_weather')).toBeNull(); // never kept between app starts
   });
 
   it('looks up a saved city that has no position yet', async () => {
     const loc = TestBed.inject(LocationService);
-    loc.place.set({ city: 'Kaza', region: 'Himachal Pradesh', country: 'India', countryCode: 'IN' });
+    loc.place.set({ city: 'Kaza', region: 'Himachal Pradesh', country: 'India', countryCode: 'IN', source: 'ip' });
     const svc = TestBed.inject(WeatherService);
     const http = TestBed.inject(HttpTestingController);
     const done = svc.refresh(true);
@@ -84,5 +84,43 @@ describe('WeatherService', () => {
     http.expectOne((r) => r.url.includes('latitude=32.22')).flush({ current: { temperature_2m: 5, weather_code: 3, is_day: 1 } });
     await done;
     expect(svc.mood()!.label).toBe('Overcast');
+  });
+
+  it('shows nothing for the Leh fallback (location unknown)', async () => {
+    const loc = TestBed.inject(LocationService);
+    loc.place.set({ ...leh, source: 'default' });
+    const svc = TestBed.inject(WeatherService);
+    const http = TestBed.inject(HttpTestingController);
+    await svc.refresh(true);
+    http.expectNone((r) => r.url.includes('open-meteo'));
+    expect(svc.weather()).toBeNull();
+    expect(svc.mood()).toBeNull();
+  });
+
+  it('hides the weather when it cannot be fetched, even if it had one before', async () => {
+    const loc = TestBed.inject(LocationService);
+    loc.place.set(leh);
+    const svc = TestBed.inject(WeatherService);
+    const http = TestBed.inject(HttpTestingController);
+    let done = svc.refresh(true);
+    http.expectOne((r) => r.url.includes('api.open-meteo.com')).flush({ current: { temperature_2m: 10, weather_code: 0, is_day: 1 } });
+    await done;
+    expect(svc.weather()).not.toBeNull();
+    done = svc.refresh(true);
+    http.expectOne((r) => r.url.includes('api.open-meteo.com')).flush('down', { status: 503, statusText: 'Down' });
+    await done;
+    expect(svc.weather()).toBeNull();
+  });
+
+  it('does not refetch within the hour unless forced', async () => {
+    const loc = TestBed.inject(LocationService);
+    loc.place.set(leh);
+    const svc = TestBed.inject(WeatherService);
+    const http = TestBed.inject(HttpTestingController);
+    const done = svc.refresh(true);
+    http.expectOne((r) => r.url.includes('api.open-meteo.com')).flush({ current: { temperature_2m: 10, weather_code: 0, is_day: 1 } });
+    await done;
+    await svc.refresh();
+    http.expectNone((r) => r.url.includes('api.open-meteo.com'));
   });
 });
