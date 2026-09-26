@@ -2,6 +2,7 @@
 // YakBeats — Artist Card
 // ============================================
 
+import { ArtPipe } from '../art.pipe';
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ArtistSummary } from '../../models';
@@ -9,12 +10,12 @@ import { ArtistSummary } from '../../models';
 @Component({
   selector: 'app-artist-card',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, ArtPipe],
   template: `
     <a class="artist-card" [routerLink]="['/artist', artist().ref]">
       <span class="artist-card__img">
         @if (artist().image) {
-          <img [src]="artist().image" [alt]="artist().name" loading="lazy" />
+          <img [src]="artist().image | art" [alt]="artist().name" loading="lazy" />
         } @else {
           <i class="bi bi-person-fill"></i>
         }

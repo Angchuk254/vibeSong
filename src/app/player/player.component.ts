@@ -2,6 +2,7 @@
 // YakBeats — Music Player Component
 // ============================================
 
+import { ArtPipe } from '../shared/art.pipe';
 import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { PlayerService, StorageService, LibraryService, LyricsService, MusicApiService } from '../services';
 import { Lyrics } from '../services/lyrics.service';
@@ -15,7 +16,7 @@ import { Track } from '../models';
 @Component({
   selector: 'app-player',
   standalone: true,
-  imports: [TrackListItemComponent],
+  imports: [TrackListItemComponent, ArtPipe],
   template: `
     @if (player.notice()) {
       <div class="player__toast" role="status" aria-live="polite">{{ player.notice() }}</div>
@@ -249,7 +250,7 @@ import { Track } from '../models';
                   @for (q of player.upNext(); track q.id; let i = $index) {
                     <div class="player__q-item">
                       <button class="player__q-main" (click)="player.playAt(player.queueIndex() + 1 + i)">
-                        <img [src]="art(q)" alt="" loading="lazy" />
+                        <img [src]="art(q) | art" alt="" loading="lazy" />
                         <span class="player__q-text">
                           <span class="player__q-name">{{ q.name }}</span>
                           <span class="player__q-artist">

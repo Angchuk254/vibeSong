@@ -11,6 +11,7 @@ import { DeviceMusicService, DEVICE_PREFIX } from './device-music.service';
 import { YouTubeService, YT_PREFIX } from './youtube.service';
 import { YouTubeMedia } from './youtube-media';
 import { AudioFxService } from './audio-fx.service';
+import { DataSaverService, estimateKbps } from './data-saver.service';
 
 /** Whatever is currently producing sound: an <audio> element or the YouTube player */
 type MediaLike = HTMLAudioElement | YouTubeMedia;
@@ -27,6 +28,7 @@ export class PlayerService {
   private device = inject(DeviceMusicService);
   private youtube = inject(YouTubeService);
   private fx = inject(AudioFxService);
+  private saver = inject(DataSaverService);
   /** Two <audio> elements, so one song can fade into the next */
   private pair = [new Audio(), new Audio()] as const;
   /** Never goes through the equalizer: for audio that doesn't allow it (e.g. many radio stations) */
@@ -157,6 +159,7 @@ export class PlayerService {
     this.restoreSession();
     this.setupMediaSession();
     window.addEventListener('offline', () => this.checkOffline(4000));
+    this.trackDataUse();
     window.addEventListener('online', () => this.backOnline());
 
     effect(() => this.storage.savePlayerPrefs({
@@ -542,7 +545,8 @@ export class PlayerService {
   private async sourceFor(track: Track): Promise<string | null> {
     this.playingFullVersion.set(false);
     if (track.audio.startsWith(DEVICE_PREFIX)) return this.device.resolve(track.audio);
-    if (track.isPreview && this.autoFullVersion() && this.youtube.hasKey()) {
+    // Data saver: a YouTube video costs far more data than the preview
+    if (track.isPreview && this.autoFullVersion() && this.youtube.hasKey() && !this.saver.active()) {
       try {
         const id = await firstValueFrom(this.youtube.findFullVersion(track).pipe(timeout(8000)));
         if (id) {
@@ -667,7 +671,7 @@ export class PlayerService {
     }
     const next = q[i];
     if (!next || next.isLive || next.audio.startsWith(YT_PREFIX)) return;
-    if (next.isPreview && this.autoFullVersion() && this.youtube.hasKey()) return; // will play on YouTube
+    if (next.isPreview && this.autoFullVersion() && this.youtube.hasKey() && !this.saver.active()) return; // will play on YouTube
     if (!navigator.onLine && !DeviceMusicService.isDeviceTrack(next)) return;
 
     this.fading = el;
@@ -872,6 +876,23 @@ export class PlayerService {
       if (!navigator.onLine) this.checkOffline(3000);
     });
     on('canplay', () => this.isLoading.set(false));
+  }
+
+  // ── Data used (estimate) ──
+
+  private trackDataUse(): void {
+    const STEP = 5;
+    let ticks = 0;
+    setInterval(() => {
+      const t = this.currentTrack();
+      if (t && this.isPlaying() && navigator.onLine) {
+        const kbps = estimateKbps(t, this.media === this.yt, this.saver.active());
+        this.saver.addBytes((kbps * 1000 / 8) * STEP);
+      }
+      if (++ticks % 12 === 0) this.saver.persist(); // every minute
+    }, STEP * 1000);
+    window.addEventListener('pagehide', () => this.saver.persist());
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && this.saver.persist());
   }
 
   // ── Offline ──

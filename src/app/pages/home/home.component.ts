@@ -3,6 +3,7 @@
 // ============================================
 
 import { WeatherCardComponent } from '../../shared/weather-card/weather-card.component';
+import { ArtPipe } from '../../shared/art.pipe';
 import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
@@ -26,7 +27,7 @@ interface Row {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterLink, TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent, WeatherCardComponent],
+  imports: [CommonModule, RouterLink, TrackCardComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent, WeatherCardComponent, ArtPipe],
   template: `
     <div class="home vo-fade-in">
       <!-- Brand (phones: the sidebar with the logo is hidden) -->
@@ -85,7 +86,7 @@ interface Row {
             }
             @for (pl of library.playlists().slice(0, 3); track pl.id) {
               <a class="quick-tile" [routerLink]="['/playlist', pl.id]">
-                @if (pl.image) { <img class="quick-tile__art" [src]="pl.image" alt="" loading="lazy" /> }
+                @if (pl.image) { <img class="quick-tile__art" [src]="pl.image | art" alt="" loading="lazy" /> }
                 @else { <span class="quick-tile__art quick-tile__art--liked"><i class="bi bi-music-note-list"></i></span> }
                 <span class="quick-tile__name">{{ pl.name }}<small>{{ pl.tracks.length }} songs</small></span>
                 <i class="bi bi-play-circle-fill quick-tile__play"></i>
@@ -93,7 +94,7 @@ interface Row {
             }
             @for (track of recentTracks().slice(0, quickSlots()); track track.id) {
               <button class="quick-tile" (click)="player.playTrack(track, recentTracks())">
-                <img class="quick-tile__art" [src]="track.album_image || track.image || 'icons/icon-192x192.png'" alt="" loading="lazy" />
+                <img class="quick-tile__art" [src]="track.album_image || track.image || 'icons/icon-192x192.png' | art" alt="" loading="lazy" />
                 <span class="quick-tile__name">{{ track.name }}<small>{{ track.artist_name }}</small></span>
                 <i class="bi bi-play-circle-fill quick-tile__play"></i>
               </button>

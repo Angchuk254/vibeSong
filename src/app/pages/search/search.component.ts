@@ -2,6 +2,7 @@
 // YakBeats — Search Component
 // ============================================
 
+import { ArtPipe } from '../../shared/art.pipe';
 import { Component, inject, signal, computed, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -28,7 +29,7 @@ const EMPTY: Results = { songs: [], stations: [], artists: [], playlists: [] };
 @Component({
   selector: 'app-search',
   standalone: true,
-  imports: [CommonModule, TrackListItemComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent],
+  imports: [CommonModule, TrackListItemComponent, SkeletonComponent, ArtistCardComponent, CollectionCardComponent, ArtPipe],
   template: `
     <div class="search-page vo-fade-in">
       <!-- Search Input -->
@@ -112,7 +113,7 @@ const EMPTY: Results = { songs: [], stations: [], artists: [], playlists: [] };
                        (click)="player.playTrack(top, fullSongs().length ? fullSongs() : previews())"
                        (keydown.enter)="player.playTrack(top, fullSongs().length ? fullSongs() : previews())">
                     <h3 class="vo-section-title">Top result</h3>
-                    <img [src]="top.album_image || top.image || 'icons/icon-192x192.png'" alt="" />
+                    <img [src]="top.album_image || top.image || 'icons/icon-192x192.png' | art" alt="" />
                     <h2>{{ top.name }}</h2>
                     <p>
                       @if (top.isPreview) { <span class="vo-badge">PREVIEW</span> }

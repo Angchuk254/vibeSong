@@ -2,6 +2,7 @@
 // YakBeats — Library Component
 // ============================================
 
+import { ArtPipe } from '../../shared/art.pipe';
 import { Component, ElementRef, ViewChild, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -16,7 +17,7 @@ type Sort = 'recent' | 'title' | 'artist';
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, TrackListItemComponent, ArtistCardComponent, RouterLink],
+  imports: [CommonModule, TrackListItemComponent, ArtistCardComponent, RouterLink, ArtPipe],
   template: `
     <div class="library-page vo-fade-in">
       <header class="lib-header">
@@ -108,7 +109,7 @@ type Sort = 'recent' | 'title' | 'artist';
             @for (pl of library.playlists(); track pl.id) {
               <a class="playlist-card" [routerLink]="['/playlist', pl.id]">
                 <span class="playlist-card__art">
-                  @if (pl.image) { <img [src]="pl.image" alt="" loading="lazy" /> } @else { <i class="bi bi-music-note-list"></i> }
+                  @if (pl.image) { <img [src]="pl.image | art" alt="" loading="lazy" /> } @else { <i class="bi bi-music-note-list"></i> }
                 </span>
                 <span class="playlist-card__name">{{ pl.name }}</span>
                 <span class="playlist-card__meta">{{ pl.tracks.length }} songs</span>
@@ -251,7 +252,7 @@ type Sort = 'recent' | 'title' | 'artist';
               <div class="artist-row">
                 @for (a of topArtists(); track a.name) {
                   <button class="artist" (click)="searchArtist(a.name)">
-                    <img [src]="a.image || 'icons/icon-192x192.png'" alt="" loading="lazy" />
+                    <img [src]="a.image || 'icons/icon-192x192.png' | art" alt="" loading="lazy" />
                     <span class="artist__name">{{ a.name }}</span>
                     <span class="artist__plays">{{ a.plays }} plays</span>
                   </button>

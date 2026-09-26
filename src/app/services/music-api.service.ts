@@ -15,6 +15,7 @@ import { MUSIC_CATEGORIES } from '../core/categories.data';
 import { DeviceMusicService } from './device-music.service';
 import { StorageService } from './storage.service';
 import { YouTubeService } from './youtube.service';
+import { DataSaverService } from './data-saver.service';
 
 /**
  * Aggregates the music sources. Full-length songs (your Supabase uploads, Audius,
@@ -31,6 +32,7 @@ export class MusicApiService {
   private device = inject(DeviceMusicService);
   private storage = inject(StorageService);
   private youtube = inject(YouTubeService);
+  private saver = inject(DataSaverService);
 
   /** When on, 30-second previews are left out everywhere */
   readonly hidePreviews = signal(this.storage.getHidePreviews());
@@ -193,7 +195,7 @@ export class MusicApiService {
 
     // Online results are kept for the session (re-opening a page is instant and
     // doesn't hit the services' rate limits); your own songs are always fresh.
-    const key = `cat:${cat.id}:${limit}:${this.youtube.hasKey()}:${this.hidePreviews()}:${JSON.stringify(s)}`;
+    const key = `cat:${cat.id}:${limit}:${this.youtube.hasKey()}:${this.hidePreviews()}:${this.saver.active()}:${JSON.stringify(s)}`;
     const online = this.cachedAny(key, () => this.merge(sources)).pipe(
       tap((tracks) => {
         if (!tracks.length) this.rowCache.delete(key); // try again next time (e.g. was offline)
